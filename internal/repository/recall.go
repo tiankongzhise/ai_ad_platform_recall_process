@@ -23,6 +23,7 @@ func (r *RecallRepository) Create(record *model.RecallRecord) error {
 
 type QueryParams struct {
 	RecallServiceName string
+	RecallServiceUserUid string
 	Platform          string
 	UserName          string
 	Page              int
@@ -42,11 +43,11 @@ func (r *RecallRepository) Query(params QueryParams) (*QueryResult, error) {
 	if params.RecallServiceName != "" {
 		query = query.Where("recall_service_name = ?", params.RecallServiceName)
 	}
+	if params.RecallServiceUserUid != "" {
+		query = query.Where("recall_service_user_uid = ?", params.RecallServiceUserUid)
+	}
 	if params.Platform != "" {
 		query = query.Where("platform = ?", params.Platform)
-	}
-	if params.UserName != "" {
-		query = query.Where("user_name = ?", params.UserName)
 	}
 
 	var total int64
@@ -82,11 +83,11 @@ func (r *RecallRepository) QueryLatest(params QueryParams) (*model.RecallRecord,
 	if params.RecallServiceName != "" {
 		query = query.Where("recall_service_name = ?", params.RecallServiceName)
 	}
+	if params.RecallServiceUserUid != "" {
+		query = query.Where("recall_service_user_uid = ?", params.RecallServiceUserUid)
+	}
 	if params.Platform != "" {
 		query = query.Where("platform = ?", params.Platform)
-	}
-	if params.UserName != "" {
-		query = query.Where("user_name = ?", params.UserName)
 	}
 
 	var record model.RecallRecord
@@ -103,11 +104,11 @@ func (r *RecallRepository) QueryAll(params QueryParams) ([]model.RecallRecord, e
 	if params.RecallServiceName != "" {
 		query = query.Where("recall_service_name = ?", params.RecallServiceName)
 	}
+	if params.RecallServiceUserUid != "" {
+		query = query.Where("recall_service_user_uid = ?", params.RecallServiceUserUid)
+	}
 	if params.Platform != "" {
 		query = query.Where("platform = ?", params.Platform)
-	}
-	if params.UserName != "" {
-		query = query.Where("user_name = ?", params.UserName)
 	}
 
 	var records []model.RecallRecord

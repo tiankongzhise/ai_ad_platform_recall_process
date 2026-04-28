@@ -19,6 +19,35 @@ type RecallHandler struct {
 	recallService *service.RecallService
 	notifyService *service.NotifyService
 	authService   *service.AuthService
+	userRepo      *repository.UserRepository
+}
+
+func (h *RecallHandler) buildRecallQueryParams(c *gin.Context, currentUser *model.User) repository.QueryParams {
+	params := repository.QueryParams{
+		RecallServiceName: currentUser.RecallServiceName, // 强制使用当前用户，不允许跨用户查询
+		RecallServiceUserUid: c.Query("recall_service_user_uid"),
+		Platform:          c.Query("platform"),
+	}
+	legacyUserName := c.Query("user_name")
+	if params.RecallServiceUserUid == "" && legacyUserName != "" {
+		// 兼容旧参数：将 user_name 映射为对应 UID，再按 UID 查询，避免同名串历史数据
+		if user, err := h.userRepo.FindByUsername(legacyUserName); err == nil && user != nil {
+			params.RecallServiceUserUid = user.RecallServiceUserUid
+		}
+	}
+
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil {
+			params.Page = page
+		}
+	}
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil {
+			params.PageSize = pageSize
+		}
+	}
+
+	return params
 }
 
 func NewRecallHandler(recallService *service.RecallService, notifyService *service.NotifyService, authService *service.AuthService) *RecallHandler {
@@ -26,6 +55,7 @@ func NewRecallHandler(recallService *service.RecallService, notifyService *servi
 		recallService: recallService,
 		notifyService: notifyService,
 		authService:   authService,
+		userRepo:      repository.NewUserRepository(),
 	}
 }
 
@@ -152,20 +182,7 @@ func (h *RecallHandler) Query(c *gin.Context) {
 		return
 	}
 
-	params := repository.QueryParams{
-		RecallServiceName: currentUser.RecallServiceName, // 强制使用当前用户，不允许查询其他用户
-	}
-
-	if pageStr := c.Query("page"); pageStr != "" {
-		if page, err := strconv.Atoi(pageStr); err == nil {
-			params.Page = page
-		}
-	}
-	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
-		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil {
-			params.PageSize = pageSize
-		}
-	}
+	params := h.buildRecallQueryParams(c, currentUser)
 
 	result, err := h.recallService.Query(params)
 	if err != nil {
@@ -184,9 +201,7 @@ func (h *RecallHandler) QueryLatest(c *gin.Context) {
 		return
 	}
 
-	params := repository.QueryParams{
-		RecallServiceName: currentUser.RecallServiceName, // 强制使用当前用户，不允许查询其他用户
-	}
+	params := h.buildRecallQueryParams(c, currentUser)
 
 	record, err := h.recallService.QueryLatest(params)
 	if err != nil {
@@ -205,9 +220,7 @@ func (h *RecallHandler) QueryHistory(c *gin.Context) {
 		return
 	}
 
-	params := repository.QueryParams{
-		RecallServiceName: currentUser.RecallServiceName, // 强制使用当前用户，不允许查询其他用户
-	}
+	params := h.buildRecallQueryParams(c, currentUser)
 
 	records, err := h.recallService.QueryAll(params)
 	if err != nil {

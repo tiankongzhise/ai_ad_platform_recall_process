@@ -7,6 +7,7 @@ import (
 type RecallRecord struct {
 	ID                uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
 	RecallServiceName string    `gorm:"type:varchar(64);not null;index;comment:服务用户名" json:"recall_service_name"`
+	RecallServiceUserUid string `gorm:"type:varchar(64);index;comment:服务用户UID(唯一身份标识)" json:"recall_service_user_uid,omitempty"`
 	Platform          string    `gorm:"type:varchar(64);not null;index;comment:平台来源" json:"platform"`
 	UserName          string    `gorm:"type:varchar(128);not null;index;comment:授权用户名称" json:"user_name"`
 	Params            string    `gorm:"type:text;comment:完整参数JSON" json:"params,omitempty"`

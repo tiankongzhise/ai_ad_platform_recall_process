@@ -94,6 +94,7 @@ func (s *RecallService) ProcessRecallWithParams(state string) (*RecallParams, []
 func (s *RecallService) SaveRecall(params *RecallParams, extraParams map[string]string) (*RecallResponse, error) {
 	record := &model.RecallRecord{
 		RecallServiceName: params.RecallServiceName,
+		RecallServiceUserUid: params.RecallServiceUserUid,
 		Platform:          params.PlatformNumber,  // 使用 PlatformNumber
 		UserName:          params.UserNumber,      // 使用 UserNumber
 	}
