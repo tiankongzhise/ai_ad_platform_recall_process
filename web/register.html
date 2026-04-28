@@ -67,6 +67,9 @@
             <p class="auth-link">
                 已有账号? <a href="/web/login.html">立即登录</a>
             </p>
+            <div style="margin-top: 16px; text-align: center;">
+                <a href="/web/login.html" class="btn btn-outline" style="display: inline-block; text-decoration: none;">← 返回登录</a>
+            </div>
         </div>
     </div>
 
@@ -153,6 +156,9 @@
                     phone: phone || undefined,
                     code: code || undefined
                 });
+
+                // 显示成功提示
+                alert('注册成功！请妥善保存您的ApiToken。');
 
                 // 显示ApiToken弹窗
                 registeredApiToken = res.data.data.api_token;
