@@ -7,6 +7,7 @@ USE recall_platform;
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     recall_service_name VARCHAR(64) NOT NULL UNIQUE COMMENT '服务用户名',
+    recall_service_user_uid VARCHAR(64) UNIQUE COMMENT '用户唯一标识UID',
     phone VARCHAR(20) COMMENT '手机号',
     password VARCHAR(255) NOT NULL COMMENT '加密密码',
     api_token VARCHAR(64) UNIQUE COMMENT '用户API Token(长期有效)',
@@ -15,7 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_recall_service_name (recall_service_name),
-    INDEX idx_api_token (api_token)
+    INDEX idx_api_token (api_token),
+    INDEX idx_recall_service_user_uid (recall_service_user_uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Token表（JWT Token）
