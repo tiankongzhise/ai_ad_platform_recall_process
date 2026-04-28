@@ -5,33 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>注册 - 广告回调平台</title>
     <link rel="stylesheet" href="/web/css/style.css">
-    <style>
-        .api-token-box {
-            background: #e7f3ff;
-            border: 1px solid #b3d8ff;
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 20px;
-        }
-        .api-token-box h3 {
-            margin: 0 0 12px 0;
-            color: #0066cc;
-        }
-        .api-token-box p {
-            margin: 8px 0;
-            font-size: 13px;
-            color: #666;
-        }
-        .api-token-box code {
-            display: block;
-            background: #fff;
-            padding: 12px;
-            border-radius: 4px;
-            word-break: break-all;
-            font-size: 12px;
-            margin-top: 8px;
-        }
-    </style>
 </head>
 <body>
     <div class="auth-container">
@@ -70,22 +43,6 @@
             <div style="margin-top: 16px; text-align: center;">
                 <a href="/web/login.html" class="btn btn-outline" style="display: inline-block; text-decoration: none;">← 返回登录</a>
             </div>
-        </div>
-    </div>
-
-    <!-- 注册成功弹窗 -->
-    <div id="successModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h2>注册成功</h2>
-            <p>您的账户已创建成功，请妥善保存以下信息：</p>
-            <div class="api-token-box">
-                <h3>您的 ApiToken（长期有效）</h3>
-                <p>此Token用于调用API换取JWT令牌，请妥善保管，切勿泄露给他人。</p>
-                <code id="apiTokenDisplay"></code>
-                <p style="color: #cc0000; margin-top: 12px;">⚠️ 请立即复制保存，离开此页面后将无法再次查看！</p>
-            </div>
-            <button id="btnCopyToken" class="btn btn-primary btn-block" style="margin-top: 16px;">复制Token</button>
-            <button id="btnGoLogin" class="btn btn-outline btn-block" style="margin-top: 8px;">前往登录</button>
         </div>
     </div>
 
@@ -128,8 +85,6 @@
             }
         });
 
-        let registeredApiToken = '';
-
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
@@ -157,30 +112,12 @@
                     code: code || undefined
                 });
 
-                // 显示成功提示
-                alert('注册成功！请妥善保存您的ApiToken。');
-
-                // 显示ApiToken弹窗
-                registeredApiToken = res.data.data.api_token;
-                document.getElementById('apiTokenDisplay').textContent = registeredApiToken;
-                document.getElementById('successModal').style.display = 'flex';
+                // 跳转到注册成功页面
+                const apiToken = res.data.data.api_token;
+                window.location.href = `/web/register-success.html?token=${encodeURIComponent(apiToken)}`;
             } catch (err) {
                 alert('注册失败: ' + (err.response?.data?.message || err.message));
             }
-        });
-
-        // 复制Token
-        document.getElementById('btnCopyToken').addEventListener('click', () => {
-            navigator.clipboard.writeText(registeredApiToken).then(() => {
-                alert('已复制到剪贴板');
-            }).catch(() => {
-                alert('复制失败，请手动复制');
-            });
-        });
-
-        // 前往登录
-        document.getElementById('btnGoLogin').addEventListener('click', () => {
-            window.location.href = '/web/login.html';
         });
     </script>
 </body>

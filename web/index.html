@@ -121,16 +121,6 @@
                 </div>
             </section>
 
-            <!-- RecallServiceUserUid 区域 -->
-            <section class="api-token-section" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-                <h3>🆔 RecallServiceUserUid（用户唯一标识）</h3>
-                <p>此UID用于回调接口的state参数，请妥善保管，显示在用户名旁边。</p>
-                <div class="token-display">
-                    <input type="password" id="uidDisplay" class="form-control hidden-token" readonly style="font-size: 14px;">
-                    <button type="button" class="toggle-visibility" onclick="toggleTokenVisibility('uidDisplay', this)">👁️</button>
-                </div>
-            </section>
-
             <!-- JWT Token信息 -->
             <section class="card">
                 <h2>JWT Token 信息</h2>
@@ -265,7 +255,6 @@
         let tokenExpiry = localStorage.getItem('jwt_expires_at') || localStorage.getItem('tokenExpiry');
         let apiToken = localStorage.getItem('api_token');
         let username = localStorage.getItem('username');
-        let uid = localStorage.getItem('recall_service_user_uid');
 
         if (!currentToken) {
             window.location.href = '/web/login.html';
@@ -277,16 +266,19 @@
         // 显示用户名
         document.getElementById('username').textContent = username || '未登录';
 
-        // 显示 UID
-        function loadUid() {
-            const storedUid = localStorage.getItem('recall_service_user_uid');
-            if (storedUid) {
-                document.getElementById('uidDisplay').value = storedUid;
-                document.getElementById('uidDisplaySmall').textContent = '(UID: ' + storedUid + ')';
-                uid = storedUid;
+        // 显示用户名旁边的 UID
+        async function loadUidForHeader() {
+            try {
+                const res = await axios.get(`${API_BASE}/api/auth/get-uid`, {
+                    params: { username: username }
+                });
+                const uid = res.data.data.recall_service_user_uid;
+                document.getElementById('uidDisplaySmall').textContent = '(UID: ' + uid + ')';
+            } catch (err) {
+                console.log('获取UID失败');
             }
         }
-        loadUid();
+        loadUidForHeader();
 
         // Token显示切换功能
         function toggleTokenVisibility(inputId, btn) {
@@ -467,18 +459,33 @@
         // 页面加载时初始化
         loadApiToken();
         loadJWTTokenInfo();
-        loadUid();
 
-        function updateExampleUrl() {
-            const storedUid = localStorage.getItem('recall_service_user_uid') || 'YOUR_UID';
+        function updateExampleUrl(uid) {
             const platformNumber = document.getElementById('queryPlatform').value || '12345';
             const userNumber = document.getElementById('queryUserName').value || '67890';
-            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?state=${storedUid}_${platformNumber}_${userNumber}`;
+            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?state=${uid}_${platformNumber}_${userNumber}`;
         }
 
-        updateExampleUrl();
+        // 页面加载时获取 UID 并更新示例
+        async function loadUidAndUpdateExample() {
+            try {
+                const res = await axios.get(`${API_BASE}/api/auth/get-uid`, {
+                    params: { username: username }
+                });
+                const uid = res.data.data.recall_service_user_uid;
+                updateExampleUrl(uid);
+            } catch (err) {
+                updateExampleUrl('YOUR_UID');
+            }
+        }
+        loadUidAndUpdateExample();
+
         document.querySelectorAll('#queryPlatform, #queryUserName').forEach(el => {
-            el.addEventListener('input', updateExampleUrl);
+            el.addEventListener('input', () => {
+                const res = document.getElementById('exampleUrl').textContent;
+                const uid = res.split('_')[0].replace(`${window.location.origin}/recall?state=`, '');
+                updateExampleUrl(uid);
+            });
         });
 
         document.getElementById('btnLogout').addEventListener('click', async () => {
@@ -494,7 +501,6 @@
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('jwt_expires_at');
             localStorage.removeItem('refresh_expires_at');
-            localStorage.removeItem('recall_service_user_uid');
             window.location.href = '/web/login.html';
         });
 
