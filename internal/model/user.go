@@ -7,9 +7,9 @@ import (
 )
 
 type User struct {
-	ID                   uint64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	RecallServiceName    string     `gorm:"type:varchar(64);not null;uniqueIndex;comment:服务用户名" json:"recall_service_name"`
-	RecallServiceUserUid string     `gorm:"type:varchar(64);uniqueIndex;comment:用户唯一标识UID" json:"recall_service_user_uid"`
+	ID                   uint64     `gorm:"primaryKey;autoIncrement" json:"-"`
+	UserName             string     `gorm:"column:user_name;type:varchar(64);not null;uniqueIndex;comment:用户名" json:"user_name"`
+	UID                  string     `gorm:"column:uid;type:varchar(64);uniqueIndex;comment:用户唯一标识UID" json:"uid"`
 	Phone                string     `gorm:"type:varchar(20);comment:手机号" json:"phone,omitempty"`
 	Password             string     `gorm:"type:varchar(255);not null;comment:加密密码" json:"-"`
 	ApiToken             string     `gorm:"type:varchar(64);uniqueIndex;comment:用户API Token(长期有效)" json:"api_token,omitempty"`

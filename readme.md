@@ -112,23 +112,23 @@ go run cmd/server/main.go
 ### 回调格式
 
 ```
-GET /recall?state={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params=value
+GET /recall?state={uid}_{platform}_{user_tag}&other_params=value
 ```
 
 ### 示例
 
 ```bash
 # URL编码后的请求
-curl "http://localhost:8080/recall?state=recall_service_name%3Dtest_user%26platform%3Dfacebook%26user_name%3Duser123"
+curl "http://localhost:8080/recall?state=e8b5f1a2c3d4e5f6a7b8c9d0e1f2a3b4_2_10001"
 ```
 
 ### 参数说明
 
 | 参数 | 必填 | 说明 |
 |------|------|------|
-| recall_service_name | 是 | 注册的回调服务用户名 |
+| uid | 是 | 用户唯一UID |
 | platform | 是 | 回调来源平台 |
-| user_name | 是 | 授权用户名称 |
+| user_tag | 是 | 授权用户标签 |
 | other_params | 否 | 其他自定义参数 |
 
 ## 前端页面

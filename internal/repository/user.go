@@ -23,7 +23,7 @@ func (r *UserRepository) Create(user *model.User) error {
 
 func (r *UserRepository) FindByUsername(username string) (*model.User, error) {
 	var user model.User
-	err := r.db.Where("recall_service_name = ?", username).First(&user).Error
+	err := r.db.Where("user_name = ?", username).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -86,9 +86,9 @@ func (r *UserRepository) FindActiveByPhone(phone string) (*model.User, error) {
 	return &user, nil
 }
 
-func (r *UserRepository) FindByRecallServiceUserUid(uid string) (*model.User, error) {
+func (r *UserRepository) FindByUID(uid string) (*model.User, error) {
 	var user model.User
-	err := r.db.Unscoped().Where("recall_service_user_uid = ?", uid).First(&user).Error
+	err := r.db.Unscoped().Where("uid = ?", uid).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

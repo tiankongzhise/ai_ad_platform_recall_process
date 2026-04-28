@@ -54,9 +54,9 @@ func generateApiToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// generateRecallServiceUserUid 生成一个随机的RecallServiceUserUid
+// generateUID 生成用户唯一UID
 // 格式：32位十六进制字符串
-func generateRecallServiceUserUid() (string, error) {
+func generateUID() (string, error) {
 	bytes := make([]byte, 16) // 16字节 = 32个十六进制字符
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
@@ -72,10 +72,9 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
-	UserID                uint64 `json:"user_id"`
-	Username              string `json:"username"`
-	RecallServiceUserUid  string `json:"recall_service_user_uid"` // 注册时自动生成的用户唯一标识
-	ApiToken              string `json:"api_token"`                 // 注册时自动生成长期有效的ApiToken
+	Username string `json:"username"`
+	UID      string `json:"uid"` // 注册时自动生成的用户唯一标识
+	ApiToken string `json:"api_token"` // 注册时自动生成长期有效的ApiToken
 }
 
 func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
@@ -112,18 +111,18 @@ func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
 		return nil, err
 	}
 
-	// 注册时自动生成RecallServiceUserUid
-	recallServiceUserUid, err := generateRecallServiceUserUid()
+	// 注册时自动生成UID
+	uid, err := generateUID()
 	if err != nil {
 		return nil, err
 	}
 
 	user := &model.User{
-		RecallServiceName:    req.Username,
-		RecallServiceUserUid: recallServiceUserUid,
-		Phone:                req.Phone,
-		Password:             hashedPassword,
-		ApiToken:             apiToken,
+		UserName: req.Username,
+		UID:      uid,
+		Phone:    req.Phone,
+		Password: hashedPassword,
+		ApiToken: apiToken,
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
@@ -131,10 +130,9 @@ func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
 	}
 
 	return &RegisterResponse{
-		UserID:               user.ID,
-		Username:             user.RecallServiceName,
-		RecallServiceUserUid: recallServiceUserUid,
-		ApiToken:             apiToken,
+		Username: user.UserName,
+		UID:      uid,
+		ApiToken: apiToken,
 	}, nil
 }
 
@@ -144,11 +142,10 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token                 string    `json:"token"`
-	ExpiresAt             time.Time `json:"expires_at"`
-	UserID                uint64    `json:"user_id"`
-	Username              string    `json:"username"`
-	RecallServiceUserUid  string    `json:"recall_service_user_uid"` // 用户唯一标识，显示在用户名旁边
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Username  string    `json:"username"`
+	UID       string    `json:"uid"` // 用户唯一标识，显示在用户名旁边
 }
 
 func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
@@ -170,11 +167,10 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 	}
 
 	return &LoginResponse{
-		Token:                tokenStr,
-		ExpiresAt:            expiresAt,
-		UserID:               user.ID,
-		Username:             user.RecallServiceName,
-		RecallServiceUserUid: user.RecallServiceUserUid,
+		Token:     tokenStr,
+		ExpiresAt: expiresAt,
+		Username:  user.UserName,
+		UID:       user.UID,
 	}, nil
 }
 
@@ -432,8 +428,8 @@ func (s *AuthService) GetApiToken(userID uint64) (*GetApiTokenResponse, error) {
 
 // GetAccountInfo 获取用户账户信息
 type AccountInfoResponse struct {
-	Username               string `json:"username"`
-	RecallServiceUserUid   string `json:"recall_service_user_uid"`
+	Username string `json:"username"`
+	UID      string `json:"uid"`
 }
 
 func (s *AuthService) GetAccountInfo(userID uint64) (*AccountInfoResponse, error) {
@@ -443,8 +439,8 @@ func (s *AuthService) GetAccountInfo(userID uint64) (*AccountInfoResponse, error
 	}
 
 	return &AccountInfoResponse{
-		Username:             user.RecallServiceName,
-		RecallServiceUserUid: user.RecallServiceUserUid,
+		Username: user.UserName,
+		UID:      user.UID,
 	}, nil
 }
 
@@ -695,7 +691,7 @@ func (s *AuthService) DeleteAccount(userID uint64, req DeleteAccountRequest) (*D
 		return nil, err
 	}
 
-	if user.RecallServiceName != req.ConfirmUsername {
+	if user.UserName != req.ConfirmUsername {
 		return nil, errors.New("账户名称不正确")
 	}
 
@@ -709,17 +705,17 @@ func (s *AuthService) DeleteAccount(userID uint64, req DeleteAccountRequest) (*D
 	return &DeleteAccountResponse{Message: "账户已注销"}, nil
 }
 
-// GetRecallServiceUserUidByUsername 通过用户名查询 RecallServiceUserUid
-type GetRecallServiceUserUidByUsernameRequest struct {
+// GetUidByUsername 通过用户名查询 UID
+type GetUidByUsernameRequest struct {
 	Username string `json:"username" binding:"required"`
 }
 
-type GetRecallServiceUserUidByUsernameResponse struct {
-	Username             string `json:"username"`
-	RecallServiceUserUid string `json:"recall_service_user_uid"`
+type GetUidByUsernameResponse struct {
+	Username string `json:"username"`
+	UID      string `json:"uid"`
 }
 
-func (s *AuthService) GetRecallServiceUserUidByUsername(req GetRecallServiceUserUidByUsernameRequest) (*GetRecallServiceUserUidByUsernameResponse, error) {
+func (s *AuthService) GetUidByUsername(req GetUidByUsernameRequest) (*GetUidByUsernameResponse, error) {
 	user, err := s.userRepo.FindByUsername(req.Username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -728,8 +724,8 @@ func (s *AuthService) GetRecallServiceUserUidByUsername(req GetRecallServiceUser
 		return nil, err
 	}
 
-	return &GetRecallServiceUserUidByUsernameResponse{
-		Username:             user.RecallServiceName,
-		RecallServiceUserUid: user.RecallServiceUserUid,
+	return &GetUidByUsernameResponse{
+		Username: user.UserName,
+		UID:      user.UID,
 	}, nil
 }

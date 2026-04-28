@@ -127,7 +127,7 @@
                 localStorage.removeItem('refresh_token');
                 localStorage.removeItem('refresh_expires_at');
                 localStorage.setItem('username', res.data.data.username);
-                localStorage.setItem('recall_service_user_uid', res.data.data.recall_service_user_uid);
+                localStorage.setItem('uid', res.data.data.uid);
                 // 避免跨账号复用旧用户的api_token触发越权
                 localStorage.removeItem('api_token');
 
@@ -158,7 +158,7 @@
                     axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.data.jwt_token}`;
                     const userRes = await axios.get(`${API_BASE}/api/account/info`);
                     localStorage.setItem('username', userRes.data.data.username);
-                    localStorage.setItem('recall_service_user_uid', userRes.data.data.recall_service_user_uid);
+                    localStorage.setItem('uid', userRes.data.data.uid);
                 } catch (e) {
                     console.log('Get user info failed');
                 }

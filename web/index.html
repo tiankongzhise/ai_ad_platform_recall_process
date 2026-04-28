@@ -194,16 +194,16 @@
                 <div class="query-form">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="queryServiceName">服务名称:</label>
-                            <input type="text" id="queryServiceName" placeholder="recall_service_name">
+                            <label for="queryServiceName">用户名(自动):</label>
+                            <input type="text" id="queryServiceName" placeholder="user_name(由登录态自动限定)" disabled>
                         </div>
                         <div class="form-group">
                             <label for="queryPlatform">平台:</label>
                             <input type="text" id="queryPlatform" placeholder="platform">
                         </div>
                         <div class="form-group">
-                            <label for="queryUserName">用户名:</label>
-                            <input type="text" id="queryUserName" placeholder="user_name">
+                            <label for="queryUserName">用户标签:</label>
+                            <input type="text" id="queryUserName" placeholder="user_tag">
                         </div>
                     </div>
                     <div class="form-row">
@@ -230,12 +230,12 @@
                 <div class="info-box">
                     <p><strong>接口地址:</strong> <code>/recall</code></p>
                     <p><strong>调用格式:</strong></p>
-                    <pre>/recall?state=RecallServiceUserUid_PlatformNumber_UserNumber</pre>
+                    <pre>/recall?state=Uid_Platform_UserTag</pre>
                     <p><strong>参数说明:</strong></p>
                     <ul>
-                        <li><code>RecallServiceUserUid</code> - 32位十六进制字符串，用户唯一标识（显示在用户名旁边）</li>
-                        <li><code>PlatformNumber</code> - 不超过13位的纯数字，由用户自行管理对应关系</li>
-                        <li><code>UserNumber</code> - 不超过13位的纯数字，由用户自行管理对应关系</li>
+                        <li><code>Uid</code> - 32位十六进制字符串，用户唯一标识（显示在用户名旁边）</li>
+                        <li><code>Platform</code> - 不超过13位的纯数字，由用户自行管理对应关系</li>
+                        <li><code>UserTag</code> - 不超过13位的纯数字，由用户自行管理对应关系</li>
                     </ul>
                     <p><strong>示例:</strong></p>
                     <pre id="exampleUrl"></pre>
@@ -272,7 +272,7 @@
                 const res = await axios.get(`${API_BASE}/api/auth/get-uid`, {
                     params: { username: username }
                 });
-                const uid = res.data.data.recall_service_user_uid;
+                const uid = res.data.data.uid;
                 document.getElementById('uidDisplaySmall').textContent = '(UID: ' + uid + ')';
             } catch (err) {
                 console.log('获取UID失败');
@@ -462,8 +462,8 @@
 
         function updateExampleUrl(uid) {
             const platformNumber = document.getElementById('queryPlatform').value || '12345';
-            const userNumber = document.getElementById('queryUserName').value || '67890';
-            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?state=${uid}_${platformNumber}_${userNumber}`;
+            const userTag = document.getElementById('queryUserName').value || '67890';
+            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?state=${uid}_${platformNumber}_${userTag}`;
         }
 
         // 页面加载时获取 UID 并更新示例
@@ -472,7 +472,7 @@
                 const res = await axios.get(`${API_BASE}/api/auth/get-uid`, {
                     params: { username: username }
                 });
-                const uid = res.data.data.recall_service_user_uid;
+                const uid = res.data.data.uid;
                 updateExampleUrl(uid);
             } catch (err) {
                 updateExampleUrl('YOUR_UID');
@@ -598,9 +598,8 @@
 
         document.getElementById('btnQuery').addEventListener('click', async () => {
             const params = {
-                recall_service_name: document.getElementById('queryServiceName').value,
                 platform: document.getElementById('queryPlatform').value,
-                user_name: document.getElementById('queryUserName').value,
+                user_tag: document.getElementById('queryUserName').value,
                 page: parseInt(document.getElementById('queryPage').value) || 1,
                 page_size: parseInt(document.getElementById('queryPageSize').value) || 20
             };
@@ -613,13 +612,13 @@
                 if (result.records.length === 0) {
                     html += '<p class="empty">暂无数据</p>';
                 } else {
-                    html += '<table class="data-table"><thead><tr><th>ID</th><th>服务名称</th><th>平台</th><th>用户名</th><th>参数</th><th>时间</th></tr></thead><tbody>';
+                    html += '<table class="data-table"><thead><tr><th>用户名</th><th>UID</th><th>平台</th><th>用户标签</th><th>参数</th><th>时间</th></tr></thead><tbody>';
                     result.records.forEach(r => {
                         html += `<tr>
-                            <td>${r.id}</td>
-                            <td>${r.recall_service_name}</td>
-                            <td>${r.platform}</td>
                             <td>${r.user_name}</td>
+                            <td>${r.uid || ''}</td>
+                            <td>${r.platform}</td>
+                            <td>${r.user_tag}</td>
                             <td><pre>${r.params || ''}</pre></td>
                             <td>${new Date(r.created_at).toLocaleString()}</td>
                         </tr>`;
@@ -634,9 +633,8 @@
 
         document.getElementById('btnQueryLatest').addEventListener('click', async () => {
             const params = {
-                recall_service_name: document.getElementById('queryServiceName').value,
                 platform: document.getElementById('queryPlatform').value,
-                user_name: document.getElementById('queryUserName').value
+                user_tag: document.getElementById('queryUserName').value
             };
 
             try {
@@ -644,15 +642,15 @@
                 const result = res.data.data;
 
                 let html = '<p>最新1条记录:</p>';
-                if (!result || !result.id) {
+                if (!result || !result.created_at) {
                     html += '<p class="empty">暂无数据</p>';
                 } else {
-                    html += '<table class="data-table"><thead><tr><th>ID</th><th>服务名称</th><th>平台</th><th>用户名</th><th>参数</th><th>时间</th></tr></thead><tbody>';
+                    html += '<table class="data-table"><thead><tr><th>用户名</th><th>UID</th><th>平台</th><th>用户标签</th><th>参数</th><th>时间</th></tr></thead><tbody>';
                     html += `<tr>
-                        <td>${result.id}</td>
-                        <td>${result.recall_service_name}</td>
-                        <td>${result.platform}</td>
                         <td>${result.user_name}</td>
+                        <td>${result.uid || ''}</td>
+                        <td>${result.platform}</td>
+                        <td>${result.user_tag}</td>
                         <td><pre>${result.params || ''}</pre></td>
                         <td>${new Date(result.created_at).toLocaleString()}</td>
                     </tr>`;
@@ -666,9 +664,8 @@
 
         document.getElementById('btnQueryHistory').addEventListener('click', async () => {
             const params = {
-                recall_service_name: document.getElementById('queryServiceName').value,
                 platform: document.getElementById('queryPlatform').value,
-                user_name: document.getElementById('queryUserName').value
+                user_tag: document.getElementById('queryUserName').value
             };
 
             try {
@@ -679,13 +676,13 @@
                 if (!result.records || result.records.length === 0) {
                     html += '<p class="empty">暂无数据</p>';
                 } else {
-                    html += '<table class="data-table"><thead><tr><th>ID</th><th>服务名称</th><th>平台</th><th>用户名</th><th>参数</th><th>时间</th></tr></thead><tbody>';
+                    html += '<table class="data-table"><thead><tr><th>用户名</th><th>UID</th><th>平台</th><th>用户标签</th><th>参数</th><th>时间</th></tr></thead><tbody>';
                     result.records.forEach(r => {
                         html += `<tr>
-                            <td>${r.id}</td>
-                            <td>${r.recall_service_name}</td>
-                            <td>${r.platform}</td>
                             <td>${r.user_name}</td>
+                            <td>${r.uid || ''}</td>
+                            <td>${r.platform}</td>
+                            <td>${r.user_tag}</td>
                             <td><pre>${r.params || ''}</pre></td>
                             <td>${new Date(r.created_at).toLocaleString()}</td>
                         </tr>`;

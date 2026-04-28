@@ -6,8 +6,8 @@ USE recall_platform;
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    recall_service_name VARCHAR(64) NOT NULL UNIQUE COMMENT '服务用户名',
-    recall_service_user_uid VARCHAR(64) UNIQUE COMMENT '用户唯一标识UID',
+    user_name VARCHAR(64) NOT NULL UNIQUE COMMENT '用户名',
+    uid VARCHAR(64) UNIQUE COMMENT '用户唯一标识UID',
     phone VARCHAR(20) COMMENT '手机号',
     password VARCHAR(255) NOT NULL COMMENT '加密密码',
     api_token VARCHAR(64) UNIQUE COMMENT '用户API Token(长期有效)',
@@ -15,9 +15,9 @@ CREATE TABLE IF NOT EXISTS users (
     status TINYINT DEFAULT 1 COMMENT '状态 1正常 0已注销',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_recall_service_name (recall_service_name),
+    INDEX idx_user_name (user_name),
     INDEX idx_api_token (api_token),
-    INDEX idx_recall_service_user_uid (recall_service_user_uid)
+    INDEX idx_uid (uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Token表（JWT Token）
@@ -47,13 +47,15 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 -- 回调记录表
 CREATE TABLE IF NOT EXISTS recall_records (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    recall_service_name VARCHAR(64) NOT NULL COMMENT '服务用户名',
+    user_name VARCHAR(64) NOT NULL COMMENT '用户名',
+    uid VARCHAR(64) COMMENT '用户唯一标识UID',
     platform VARCHAR(64) NOT NULL COMMENT '平台来源',
-    user_name VARCHAR(128) NOT NULL COMMENT '授权用户名称',
+    user_tag VARCHAR(128) NOT NULL COMMENT '授权用户标识',
     params TEXT COMMENT '完整参数JSON',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_recall_service_name (recall_service_name),
-    INDEX idx_platform (platform),
     INDEX idx_user_name (user_name),
+    INDEX idx_uid (uid),
+    INDEX idx_platform (platform),
+    INDEX idx_user_tag (user_tag),
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
