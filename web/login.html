@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 广告回调平台</title>
+    <link rel="stylesheet" href="/web/css/style.css">
+    <style>
+        .login-tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+        .login-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.3s;
+        }
+        .login-tab.active {
+            color: #0066cc;
+            border-bottom: 2px solid #0066cc;
+            margin-bottom: -2px;
+        }
+        .login-panel {
+            display: none;
+        }
+        .login-panel.active {
+            display: block;
+        }
+        .api-token-help {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1>广告回调平台</h1>
+            <h2>登录</h2>
+            
+            <div class="login-tabs">
+                <button class="login-tab active" data-tab="password">密码登录</button>
+                <button class="login-tab" data-tab="apitoken">ApiToken登录</button>
+            </div>
+            
+            <!-- 密码登录 -->
+            <div id="passwordPanel" class="login-panel active">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="username">用户名</label>
+                        <input type="text" id="username" name="username" required placeholder="输入用户名">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">密码</label>
+                        <input type="password" id="password" name="password" required placeholder="输入密码">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">登录</button>
+                </form>
+            </div>
+            
+            <!-- ApiToken登录 -->
+            <div id="apitokenPanel" class="login-panel">
+                <form id="apiTokenForm">
+                    <div class="form-group">
+                        <label for="apiToken">ApiToken</label>
+                        <input type="password" id="apiToken" name="apiToken" required placeholder="输入您的ApiToken">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">获取JWT令牌</button>
+                </form>
+                <p class="api-token-help">使用您注册时获得的ApiToken换取JWT访问令牌</p>
+            </div>
+            
+            <p class="auth-link">
+                还没有账号? <a href="/web/register.html">立即注册</a>
+            </p>
+            <p class="auth-link">
+                <a href="/web/forgot-password.html">忘记密码?</a>
+            </p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const API_BASE = '';
+
+        if (localStorage.getItem('jwt_token')) {
+            window.location.href = '/web/index.html';
+        }
+
+        // Tab切换
+        document.querySelectorAll('.login-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.login-panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab + 'Panel').classList.add('active');
+            });
+        });
+
+        // 密码登录
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await axios.post(`${API_BASE}/api/auth/login`, {
+                    username,
+                    password
+                });
+
+                // 保存旧的token格式（兼容）
+                localStorage.setItem('token', res.data.data.token);
+                localStorage.setItem('tokenExpiry', res.data.data.expires_at);
+                localStorage.setItem('username', res.data.data.username);
+
+                // 同时创建JWT（如果用户有api_token的话）
+                const apiToken = localStorage.getItem('api_token');
+                if (apiToken) {
+                    try {
+                        const jwtRes = await axios.post(`${API_BASE}/api/auth/create-jwt-token`, {
+                            api_token: apiToken
+                        });
+                        localStorage.setItem('jwt_token', jwtRes.data.data.jwt_token);
+                        localStorage.setItem('refresh_token', jwtRes.data.data.refresh_token);
+                        localStorage.setItem('jwt_expires_at', jwtRes.data.data.expires_at);
+                        localStorage.setItem('refresh_expires_at', jwtRes.data.data.refresh_expires_at);
+                    } catch (e) {
+                        console.log('JWT creation skipped, user may need to login with password first');
+                    }
+                }
+
+                window.location.href = '/web/index.html';
+            } catch (err) {
+                alert('登录失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        // ApiToken登录
+        document.getElementById('apiTokenForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const apiToken = document.getElementById('apiToken').value;
+
+            try {
+                const res = await axios.post(`${API_BASE}/api/auth/create-jwt-token`, {
+                    api_token: apiToken
+                });
+
+                localStorage.setItem('api_token', apiToken);
+                localStorage.setItem('jwt_token', res.data.data.jwt_token);
+                localStorage.setItem('refresh_token', res.data.data.refresh_token);
+                localStorage.setItem('jwt_expires_at', res.data.data.expires_at);
+                localStorage.setItem('refresh_expires_at', res.data.data.refresh_expires_at);
+
+                // 获取用户信息
+                try {
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.data.jwt_token}`;
+                    const userRes = await axios.get(`${API_BASE}/api/account/get-api-token`);
+                    localStorage.setItem('username', 'User'); // 简化处理
+                } catch (e) {
+                    console.log('Get user info failed');
+                }
+
+                window.location.href = '/web/index.html';
+            } catch (err) {
+                alert('登录失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+    </script>
+</body>
+</html>

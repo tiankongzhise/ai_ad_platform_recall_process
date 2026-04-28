@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广告回调平台 - 控制台</title>
+    <link rel="stylesheet" href="/web/css/style.css">
+    <style>
+        .token-display {
+            position: relative;
+        }
+        .token-display input {
+            font-family: monospace;
+            font-size: 11px;
+            padding-right: 40px;
+        }
+        .toggle-visibility {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            opacity: 0.5;
+        }
+        .toggle-visibility:hover {
+            opacity: 1;
+        }
+        .token-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .token-section h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 14px;
+        }
+        .token-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .token-status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .token-status.valid {
+            background: #d4edda;
+            color: #155724;
+        }
+        .token-status.expired {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .token-status.missing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .btn-refresh-token {
+            margin-top: 8px;
+        }
+        .api-token-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .api-token-section h3 {
+            margin-top: 0;
+            color: white;
+        }
+        .api-token-section p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+        .api-token-display {
+            background: rgba(255,255,255,0.2);
+            padding: 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 12px 0;
+        }
+        .hidden-token {
+            filter: blur(5px);
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>广告回调平台 - 控制台</h1>
+            <div class="user-info">
+                <span id="username"></span>
+                <button id="btnLogout" class="btn btn-logout">登出</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- ApiToken区域 -->
+            <section class="api-token-section" id="apiTokenSection">
+                <h3>🔑 您的 ApiToken（长期有效）</h3>
+                <p>此Token用于API鉴权换取JWT令牌，请妥善保管。过期后可在此页面更换。</p>
+                <div class="token-display">
+                    <input type="password" id="apiTokenDisplay" class="form-control hidden-token" readonly>
+                    <button type="button" class="toggle-visibility" onclick="toggleTokenVisibility('apiTokenDisplay', this)">👁️</button>
+                </div>
+                <div style="margin-top: 12px;">
+                    <button id="btnViewApiToken" class="btn btn-outline" style="background: rgba(255,255,255,0.2); color: white; border-color: white;">查看Token</button>
+                    <button id="btnChangeApiToken" class="btn btn-outline" style="background: rgba(255,255,255,0.2); color: white; border-color: white;">更换Token</button>
+                </div>
+            </section>
+
+            <!-- JWT Token信息 -->
+            <section class="card">
+                <h2>JWT Token 信息</h2>
+                <div class="token-section">
+                    <h3>🎫 JWT Token <span id="jwtStatus" class="token-status missing">加载中...</span></h3>
+                    <div class="token-display">
+                        <input type="password" id="jwtTokenDisplay" class="form-control hidden-token" readonly style="width: 100%;">
+                        <button type="button" class="toggle-visibility" onclick="toggleTokenVisibility('jwtTokenDisplay', this)">👁️</button>
+                    </div>
+                    <div class="token-info-row">
+                        <span>过期时间：<span id="jwtExpiresAt"></span></span>
+                    </div>
+                    <button id="btnRefreshJwtByApiToken" class="btn btn-outline btn-refresh-token">用ApiToken刷新JWT</button>
+                </div>
+
+                <div class="token-section">
+                    <h3>🔄 Refresh Token <span id="refreshStatus" class="token-status missing">加载中...</span></h3>
+                    <div class="token-display">
+                        <input type="password" id="refreshTokenDisplay" class="form-control hidden-token" readonly style="width: 100%;">
+                        <button type="button" class="toggle-visibility" onclick="toggleTokenVisibility('refreshTokenDisplay', this)">👁️</button>
+                    </div>
+                    <div class="token-info-row">
+                        <span>过期时间：<span id="refreshExpiresAt"></span></span>
+                    </div>
+                    <button id="btnRefreshJwtByRefreshToken" class="btn btn-outline btn-refresh-token">用RefreshToken刷新JWT</button>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>通知设置</h2>
+                <div class="notify-settings">
+                    <div class="form-group">
+                        <label for="notifyUrl">通知回调URL:</label>
+                        <input type="url" id="notifyUrl" placeholder="https://your-server.com/webhook">
+                        <button id="btnSetNotify" class="btn btn-primary">设置</button>
+                    </div>
+                    <button id="btnGetNotify" class="btn btn-outline">获取当前设置</button>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>账户管理</h2>
+                <div class="account-settings">
+                    <div class="form-group">
+                        <label for="oldPassword">原密码:</label>
+                        <input type="password" id="oldPassword" placeholder="请输入原密码">
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">新密码:</label>
+                        <input type="password" id="newPassword" placeholder="请输入新密码(至少8位)">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">确认新密码:</label>
+                        <input type="password" id="confirmPassword" placeholder="再次输入新密码">
+                    </div>
+                    <button id="btnChangePassword" class="btn btn-primary">修改密码</button>
+                </div>
+                <div class="account-danger-zone" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                    <h3 style="color: #dc3545;">危险操作</h3>
+                    <p style="color: #666; font-size: 12px;">注销账户后，所有数据将被永久删除，无法恢复。</p>
+                    <div class="form-group">
+                        <label for="confirmUsername">请输入账户名称确认注销:</label>
+                        <input type="text" id="confirmUsername" placeholder="输入账户名称确认">
+                    </div>
+                    <button id="btnDeleteAccount" class="btn btn-danger">注销账户</button>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>查询回调记录</h2>
+                <div class="query-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="queryServiceName">服务名称:</label>
+                            <input type="text" id="queryServiceName" placeholder="recall_service_name">
+                        </div>
+                        <div class="form-group">
+                            <label for="queryPlatform">平台:</label>
+                            <input type="text" id="queryPlatform" placeholder="platform">
+                        </div>
+                        <div class="form-group">
+                            <label for="queryUserName">用户名:</label>
+                            <input type="text" id="queryUserName" placeholder="user_name">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="queryPage">页码:</label>
+                            <input type="number" id="queryPage" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="queryPageSize">每页数量:</label>
+                            <input type="number" id="queryPageSize" value="20" min="1" max="100">
+                        </div>
+                        <div class="form-group">
+                            <button id="btnQuery" class="btn btn-primary">查询</button>
+                            <button id="btnQueryLatest" class="btn btn-outline">最新1条</button>
+                            <button id="btnQueryHistory" class="btn btn-outline">历史数据</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="queryResult" class="query-result"></div>
+            </section>
+
+            <section class="card">
+                <h2>Recall接口使用说明</h2>
+                <div class="info-box">
+                    <p><strong>接口地址:</strong> <code>/recall</code></p>
+                    <p><strong>调用格式:</strong></p>
+                    <pre>/recall?status={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params</pre>
+                    <p><strong>必填参数:</strong></p>
+                    <ul>
+                        <li><code>recall_service_name</code> - 注册的回调服务用户名</li>
+                        <li><code>platform</code> - 回调来源平台</li>
+                        <li><code>user_name</code> - 授权用户名称</li>
+                    </ul>
+                    <p><strong>示例:</strong></p>
+                    <pre id="exampleUrl"></pre>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 广告回调平台</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const API_BASE = '';
+        let currentToken = localStorage.getItem('jwt_token') || localStorage.getItem('token');
+        let tokenExpiry = localStorage.getItem('jwt_expires_at') || localStorage.getItem('tokenExpiry');
+        let apiToken = localStorage.getItem('api_token');
+        let username = localStorage.getItem('username');
+
+        if (!currentToken) {
+            window.location.href = '/web/login.html';
+        }
+
+        // 设置Authorization头
+        axios.defaults.headers.common['Authorization'] = `Bearer ${currentToken}`;
+
+        // 显示用户名
+        document.getElementById('username').textContent = username || '未登录';
+
+        // Token显示切换功能
+        function toggleTokenVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                input.classList.remove('hidden-token');
+                btn.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                input.classList.add('hidden-token');
+                btn.textContent = '👁️';
+            }
+        }
+
+        // 点击查看Token
+        document.getElementById('btnViewApiToken').addEventListener('click', () => {
+            loadApiToken();
+        });
+
+        // 加载ApiToken
+        async function loadApiToken() {
+            try {
+                const res = await axios.get(`${API_BASE}/api/account/get-api-token`);
+                const token = res.data.data.api_token;
+                localStorage.setItem('api_token', token);
+                document.getElementById('apiTokenDisplay').value = token;
+                document.getElementById('apiTokenDisplay').type = 'text';
+                document.getElementById('apiTokenDisplay').classList.remove('hidden-token');
+                document.getElementById('apiTokenDisplay').nextElementSibling.textContent = '🙈';
+            } catch (err) {
+                console.error('Load api token failed:', err);
+            }
+        }
+
+        // 加载JWT Token信息
+        async function loadJWTTokenInfo() {
+            try {
+                const res = await axios.get(`${API_BASE}/api/token/info`);
+                const data = res.data.data;
+
+                // JWT Token
+                if (data.jwt_token) {
+                    document.getElementById('jwtTokenDisplay').value = data.jwt_token;
+                    document.getElementById('jwtExpiresAt').textContent = new Date(data.expires_at).toLocaleString();
+                    
+                    // 检查过期状态
+                    const jwtStatus = document.getElementById('jwtStatus');
+                    if (new Date(data.expires_at) > new Date()) {
+                        jwtStatus.textContent = '有效';
+                        jwtStatus.className = 'token-status valid';
+                    } else {
+                        jwtStatus.textContent = '已过期';
+                        jwtStatus.className = 'token-status expired';
+                    }
+                } else {
+                    document.getElementById('jwtTokenDisplay').value = '无JWT Token，请登录';
+                    document.getElementById('jwtStatus').textContent = '无';
+                    document.getElementById('jwtStatus').className = 'token-status missing';
+                }
+
+                // Refresh Token
+                if (data.refresh_token) {
+                    document.getElementById('refreshTokenDisplay').value = data.refresh_token;
+                    document.getElementById('refreshExpiresAt').textContent = new Date(data.refresh_expires_at).toLocaleString();
+                    
+                    const refreshStatus = document.getElementById('refreshStatus');
+                    if (new Date(data.refresh_expires_at) > new Date()) {
+                        refreshStatus.textContent = '有效';
+                        refreshStatus.className = 'token-status valid';
+                    } else {
+                        refreshStatus.textContent = '已过期';
+                        refreshStatus.className = 'token-status expired';
+                    }
+                } else {
+                    document.getElementById('refreshTokenDisplay').value = '无Refresh Token';
+                    document.getElementById('refreshStatus').textContent = '无';
+                    document.getElementById('refreshStatus').className = 'token-status missing';
+                }
+            } catch (err) {
+                console.error('Load token info failed:', err);
+                document.getElementById('jwtTokenDisplay').value = '加载失败';
+                document.getElementById('refreshTokenDisplay').value = '加载失败';
+            }
+        }
+
+        // 用ApiToken刷新JWT
+        document.getElementById('btnRefreshJwtByApiToken').addEventListener('click', async () => {
+            const storedApiToken = localStorage.getItem('api_token');
+            if (!storedApiToken) {
+                alert('请先查看并保存ApiToken');
+                return;
+            }
+
+            try {
+                const res = await axios.post(`${API_BASE}/api/auth/refresh-jwt-by-api-token`, {
+                    api_token: storedApiToken
+                });
+
+                const data = res.data.data;
+                localStorage.setItem('jwt_token', data.jwt_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
+                localStorage.setItem('jwt_expires_at', data.expires_at);
+                localStorage.setItem('refresh_expires_at', data.refresh_expires_at);
+
+                // 更新显示
+                currentToken = data.jwt_token;
+                axios.defaults.headers.common['Authorization'] = `Bearer ${currentToken}`;
+                
+                alert('JWT刷新成功');
+                loadJWTTokenInfo();
+            } catch (err) {
+                alert('刷新失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        // 用RefreshToken刷新JWT
+        document.getElementById('btnRefreshJwtByRefreshToken').addEventListener('click', async () => {
+            const storedRefreshToken = localStorage.getItem('refresh_token');
+            if (!storedRefreshToken) {
+                alert('无RefreshToken可用，请用ApiToken刷新');
+                return;
+            }
+
+            try {
+                const res = await axios.post(`${API_BASE}/api/auth/refresh-jwt-by-refresh-token`, {
+                    refresh_token: storedRefreshToken
+                });
+
+                const data = res.data.data;
+                localStorage.setItem('jwt_token', data.jwt_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
+                localStorage.setItem('jwt_expires_at', data.expires_at);
+                localStorage.setItem('refresh_expires_at', data.refresh_expires_at);
+
+                // 更新显示
+                currentToken = data.jwt_token;
+                axios.defaults.headers.common['Authorization'] = `Bearer ${currentToken}`;
+                
+                alert('JWT刷新成功');
+                loadJWTTokenInfo();
+            } catch (err) {
+                alert('刷新失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        // 更换ApiToken
+        document.getElementById('btnChangeApiToken').addEventListener('click', async () => {
+            const storedApiToken = localStorage.getItem('api_token');
+            if (!storedApiToken) {
+                alert('请先查看并复制您的ApiToken');
+                return;
+            }
+
+            if (!confirm('警告：更换ApiToken将导致当前JWT和RefreshToken失效，需要重新登录。\n\n请确保已备份您的ApiToken！\n\n确认继续吗？')) {
+                return;
+            }
+
+            try {
+                const res = await axios.post(`${API_BASE}/api/account/update-api-token`, {
+                    old_api_token: storedApiToken
+                });
+
+                const newApiToken = res.data.data.api_token;
+                localStorage.setItem('api_token', newApiToken);
+                localStorage.removeItem('jwt_token');
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('jwt_expires_at');
+                localStorage.removeItem('refresh_expires_at');
+
+                alert('ApiToken更换成功！\n新Token: ' + newApiToken + '\n\n请使用新Token重新登录');
+                window.location.href = '/web/login.html';
+            } catch (err) {
+                alert('更换失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        // 页面加载时初始化
+        loadApiToken();
+        loadJWTTokenInfo();
+
+        function updateExampleUrl() {
+            const serviceName = document.getElementById('queryServiceName').value || 'YOUR_SERVICE_NAME';
+            const platform = document.getElementById('queryPlatform').value || 'YOUR_PLATFORM';
+            const userName = document.getElementById('queryUserName').value || 'YOUR_USER_NAME';
+            const params = `recall_service_name=${serviceName}&platform=${platform}&user_name=${userName}`;
+            const encoded = encodeURIComponent(params);
+            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?status=${encoded}&other_param=value`;
+        }
+
+        updateExampleUrl();
+        document.querySelectorAll('#queryServiceName, #queryPlatform, #queryUserName').forEach(el => {
+            el.addEventListener('input', updateExampleUrl);
+        });
+
+        document.getElementById('btnLogout').addEventListener('click', async () => {
+            try {
+                await axios.post(`${API_BASE}/api/auth/logout`);
+            } catch (err) {
+                console.error('Logout error:', err);
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('tokenExpiry');
+            localStorage.removeItem('username');
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('jwt_expires_at');
+            localStorage.removeItem('refresh_expires_at');
+            window.location.href = '/web/login.html';
+        });
+
+        document.getElementById('btnSetNotify').addEventListener('click', async () => {
+            const url = document.getElementById('notifyUrl').value;
+            if (!url) {
+                alert('请输入通知URL');
+                return;
+            }
+            try {
+                await axios.post(`${API_BASE}/api/notify/set`, { notify_url: url });
+                alert('通知URL设置成功');
+            } catch (err) {
+                alert('设置失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        document.getElementById('btnGetNotify').addEventListener('click', async () => {
+            try {
+                const res = await axios.get(`${API_BASE}/api/notify/get`);
+                document.getElementById('notifyUrl').value = res.data.data.notify_url || '';
+            } catch (err) {
+                alert('获取失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        document.getElementById('btnChangePassword').addEventListener('click', async () => {
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                alert('请填写完整信息');
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                alert('两次输入的新密码不一致');
+                return;
+            }
+            if (newPassword.length < 8) {
+                alert('新密码至少8位');
+                return;
+            }
+
+            try {
+                await axios.post(`${API_BASE}/api/account/change-password`, {
+                    old_password: oldPassword,
+                    new_password: newPassword
+                });
+                alert('密码修改成功');
+                document.getElementById('oldPassword').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+            } catch (err) {
+                alert('修改失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        document.getElementById('btnDeleteAccount').addEventListener('click', async () => {
+            const confirmUsername = document.getElementById('confirmUsername').value;
+
+            if (!confirmUsername) {
+                alert('请输入账户名称确认');
+                return;
+            }
+
+            if (confirmUsername !== username) {
+                alert('账户名称不正确');
+                return;
+            }
+
+            if (!confirm('警告：账户注销后将永久删除所有数据，无法恢复！\n\n确认要注销账户 ' + username + ' 吗？')) {
+                return;
+            }
+
+            try {
+                await axios.post(`${API_BASE}/api/account/delete`, {
+                    confirm_username: confirmUsername
+                });
+                localStorage.removeItem('token');
+                localStorage.removeItem('tokenExpiry');
+                localStorage.removeItem('username');
+                localStorage.removeItem('jwt_token');
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('jwt_expires_at');
+                localStorage.removeItem('refresh_expires_at');
+                localStorage.removeItem('api_token');
+                alert('账户已注销');
+                window.location.href = '/web/login.html';
+            } catch (err) {
+                alert('注销失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        document.getElementById('btnQuery').addEventListener('click', async () => {
+            const params = {
+                recall_service_name: document.getElementById('queryServiceName').value,
+                platform: document.getElementById('queryPlatform').value,
+                user_name: document.getElementById('queryUserName').value,
+                page: parseInt(document.getElementById('queryPage').value) || 1,
+                page_size: parseInt(document.getElementById('queryPageSize').value) || 20
+            };
+
+            try {
+                const res = await axios.get(`${API_BASE}/api/query`, { params });
+                const result = res.data.data;
+
+                let html = `<p>共 ${result.total} 条记录，第 ${result.page} / ${Math.ceil(result.total / result.page_size)} 页</p>`;
+                if (result.records.length === 0) {
+                    html += '<p class="empty">暂无数据</p>';
+                } else {
+                    html += '<table class="data-table"><thead><tr><th>ID</th><th>服务名称</th><th>平台</th><th>用户名</th><th>参数</th><th>时间</th></tr></thead><tbody>';
+                    result.records.forEach(r => {
+                        html += `<tr>
+                            <td>${r.id}</td>
+                            <td>${r.recall_service_name}</td>
+                            <td>${r.platform}</td>
+                            <td>${r.user_name}</td>
+                            <td><pre>${r.params || ''}</pre></td>
+                            <td>${new Date(r.created_at).toLocaleString()}</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                }
+                document.getElementById('queryResult').innerHTML = html;
+            } catch (err) {
+                alert('查询失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        document.getElementById('btnQueryLatest').addEventListener('click', async () => {
+            const params = {
+                recall_service_name: document.getElementById('queryServiceName').value,
+                platform: document.getElementById('queryPlatform').value,
+                user_name: document.getElementById('queryUserName').value
+            };
+
+            try {
+                const res = await axios.get(`${API_BASE}/api/query/latest`, { params });
+                const result = res.data.data;
+
+                let html = '<p>最新1条记录:</p>';
+                if (!result || !result.id) {
+                    html += '<p class="empty">暂无数据</p>';
+                } else {
+                    html += '<table class="data-table"><thead><tr><th>ID</th><th>服务名称</th><th>平台</th><th>用户名</th><th>参数</th><th>时间</th></tr></thead><tbody>';
+                    html += `<tr>
+                        <td>${result.id}</td>
+                        <td>${result.recall_service_name}</td>
+                        <td>${result.platform}</td>
+                        <td>${result.user_name}</td>
+                        <td><pre>${result.params || ''}</pre></td>
+                        <td>${new Date(result.created_at).toLocaleString()}</td>
+                    </tr>`;
+                    html += '</tbody></table>';
+                }
+                document.getElementById('queryResult').innerHTML = html;
+            } catch (err) {
+                alert('查询失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+
+        document.getElementById('btnQueryHistory').addEventListener('click', async () => {
+            const params = {
+                recall_service_name: document.getElementById('queryServiceName').value,
+                platform: document.getElementById('queryPlatform').value,
+                user_name: document.getElementById('queryUserName').value
+            };
+
+            try {
+                const res = await axios.get(`${API_BASE}/api/history`, { params });
+                const result = res.data.data;
+
+                let html = `<p>历史数据，共 ${result.total || 0} 条记录</p>`;
+                if (!result.records || result.records.length === 0) {
+                    html += '<p class="empty">暂无数据</p>';
+                } else {
+                    html += '<table class="data-table"><thead><tr><th>ID</th><th>服务名称</th><th>平台</th><th>用户名</th><th>参数</th><th>时间</th></tr></thead><tbody>';
+                    result.records.forEach(r => {
+                        html += `<tr>
+                            <td>${r.id}</td>
+                            <td>${r.recall_service_name}</td>
+                            <td>${r.platform}</td>
+                            <td>${r.user_name}</td>
+                            <td><pre>${r.params || ''}</pre></td>
+                            <td>${new Date(r.created_at).toLocaleString()}</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                }
+                document.getElementById('queryResult').innerHTML = html;
+            } catch (err) {
+                alert('查询失败: ' + (err.response?.data?.message || err.message));
+            }
+        });
+    </script>
+</body>
+</html>

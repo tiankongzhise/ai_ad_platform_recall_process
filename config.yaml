@@ -1,0 +1,26 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  mode: "debug"  # debug, release, test
+
+database:
+  driver: "mysql"  # mysql, postgres
+  # host: ""         # 从环境变量 DB_HOST 读取
+  # port: 3306       # 从环境变量 DB_PORT 读取
+  # user: ""         # 从环境变量 DB_USER 读取
+  # password: ""     # 从环境变量 DB_PASSWORD 读取
+  # dbname: ""       # 从环境变量 DB_NAME 读取
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600
+
+token:
+  # secret: ""       # 从环境变量 TOKEN_SECRET 读取
+  expiry_hours: 24
+  jwt_ttl_hours: 24          # JWT有效期（小时）
+  refresh_ttl_hours: 720     # RefreshToken有效期（小时），约30天
+
+notify:
+  timeout_seconds: 5
+  retry_times: 3
+  retry_interval_seconds: 2
