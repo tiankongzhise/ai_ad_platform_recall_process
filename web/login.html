@@ -167,6 +167,7 @@
                     axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.data.jwt_token}`;
                     const userRes = await axios.get(`${API_BASE}/api/account/info`);
                     localStorage.setItem('username', userRes.data.data.username);
+                    localStorage.setItem('recall_service_user_uid', userRes.data.data.recall_service_user_uid);
                 } catch (e) {
                     console.log('Get user info failed');
                 }

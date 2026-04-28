@@ -345,12 +345,13 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 
 // GetRecallServiceUserUidByUsername 通过用户名查询 RecallServiceUserUid
 func (h *AuthHandler) GetRecallServiceUserUidByUsername(c *gin.Context) {
-	var req service.GetRecallServiceUserUidByUsernameRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, response.InternalErrorCode, "请求参数错误: "+err.Error(), nil)
+	username := c.Query("username")
+	if username == "" {
+		response.BadRequest(c, response.InternalErrorCode, "username参数不能为空", nil)
 		return
 	}
 
+	req := service.GetRecallServiceUserUidByUsernameRequest{Username: username}
 	resp, err := h.authService.GetRecallServiceUserUidByUsername(req)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {

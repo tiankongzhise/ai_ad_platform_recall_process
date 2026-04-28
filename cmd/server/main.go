@@ -75,7 +75,7 @@ func main() {
 			auth.POST("/send-code", authHandler.SendRegisterCode)
 			auth.POST("/send-reset-code", authHandler.SendResetCode)
 			auth.POST("/reset-password", authHandler.ResetPassword)
-			auth.POST("/get-uid", authHandler.GetRecallServiceUserUidByUsername) // 通过用户名查询 RecallServiceUserUid
+			auth.GET("/get-uid", authHandler.GetRecallServiceUserUidByUsername) // 通过用户名查询 RecallServiceUserUid
 		}
 
 		protected := api.Group("")
