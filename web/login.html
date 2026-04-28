@@ -121,24 +121,15 @@
                 // 保存旧的token格式（兼容）
                 localStorage.setItem('token', res.data.data.token);
                 localStorage.setItem('tokenExpiry', res.data.data.expires_at);
+                // 密码登录获取到的token即当前会话token，避免继续使用历史jwt_token
+                localStorage.setItem('jwt_token', res.data.data.token);
+                localStorage.setItem('jwt_expires_at', res.data.data.expires_at);
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('refresh_expires_at');
                 localStorage.setItem('username', res.data.data.username);
                 localStorage.setItem('recall_service_user_uid', res.data.data.recall_service_user_uid);
-
-                // 同时创建JWT（如果用户有api_token的话）
-                const apiToken = localStorage.getItem('api_token');
-                if (apiToken) {
-                    try {
-                        const jwtRes = await axios.post(`${API_BASE}/api/auth/create-jwt-token`, {
-                            api_token: apiToken
-                        });
-                        localStorage.setItem('jwt_token', jwtRes.data.data.jwt_token);
-                        localStorage.setItem('refresh_token', jwtRes.data.data.refresh_token);
-                        localStorage.setItem('jwt_expires_at', jwtRes.data.data.expires_at);
-                        localStorage.setItem('refresh_expires_at', jwtRes.data.data.refresh_expires_at);
-                    } catch (e) {
-                        console.log('JWT creation skipped, user may need to login with password first');
-                    }
-                }
+                // 避免跨账号复用旧用户的api_token触发越权
+                localStorage.removeItem('api_token');
 
                 window.location.href = '/web/index.html';
             } catch (err) {
