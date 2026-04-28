@@ -112,14 +112,14 @@ go run cmd/server/main.go
 ### 回调格式
 
 ```
-GET /recall?status={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params=value
+GET /recall?state={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params=value
 ```
 
 ### 示例
 
 ```bash
 # URL编码后的请求
-curl "http://localhost:8080/recall?status=recall_service_name%3Dtest_user%26platform%3Dfacebook%26user_name%3Duser123"
+curl "http://localhost:8080/recall?state=recall_service_name%3Dtest_user%26platform%3Dfacebook%26user_name%3Duser123"
 ```
 
 ### 参数说明

@@ -45,7 +45,7 @@
 - **直接访问返回**：返回200及接口使用说明
 - **正式调用格式**：
   ```
-  /recall?status={urlcode(recall_service_name=XXXX&platform=XXXX&user_name=XXXX)}&other_params
+  /recall?state={urlcode(recall_service_name=XXXX&platform=XXXX&user_name=XXXX)}&other_params
   ```
 - **参数说明**：
   - `recall_service_name`：注册的回调服务用户名
@@ -54,8 +54,8 @@
   - `other_params`：其他自定义参数
 
 #### 2.2.2 参数校验
-- 校验status参数是否为URL编码格式
-- 校验status内容是否为key=value格式
+- 校验state参数是否为URL编码格式
+- 校验state内容是否为key=value格式
 - 校验必填参数是否存在
 - **错误提示**：明确指出缺失的参数（支持多个参数同时缺失提示）
 

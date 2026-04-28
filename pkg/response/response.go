@@ -20,7 +20,7 @@ const (
 	MissingTokenCode       = 1004
 	InvalidTokenFormatCode = 1005
 	MissingParamsCode      = 2001
-	StatusFormatErrorCode  = 2002
+	StateFormatErrorCode   = 2002
 	ParamsParseErrorCode  = 2003
 	InvalidNotifyURLCode   = 3001
 	InternalErrorCode      = 5001

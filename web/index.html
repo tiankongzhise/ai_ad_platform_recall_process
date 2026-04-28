@@ -229,7 +229,7 @@
                 <div class="info-box">
                     <p><strong>接口地址:</strong> <code>/recall</code></p>
                     <p><strong>调用格式:</strong></p>
-                    <pre>/recall?status={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params</pre>
+                    <pre>/recall?state={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params</pre>
                     <p><strong>必填参数:</strong></p>
                     <ul>
                         <li><code>recall_service_name</code> - 注册的回调服务用户名</li>
@@ -451,7 +451,7 @@
             const userName = document.getElementById('queryUserName').value || 'YOUR_USER_NAME';
             const params = `recall_service_name=${serviceName}&platform=${platform}&user_name=${userName}`;
             const encoded = encodeURIComponent(params);
-            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?status=${encoded}&other_param=value`;
+            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?state=${encoded}&other_param=value`;
         }
 
         updateExampleUrl();

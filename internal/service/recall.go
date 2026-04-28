@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ErrStatusFormatError    = errors.New("status参数格式错误，请使用URL编码")
+	ErrStateFormatError     = errors.New("state参数格式错误，请使用URL编码")
 	ErrMissingRequiredParam = errors.New("缺少必填参数")
 )
 
@@ -38,13 +38,13 @@ type RecallResponse struct {
 	RecordID uint64 `json:"record_id"`
 }
 
-func (s *RecallService) ProcessRecallWithParams(status string) (*RecallParams, []string, error) {
-	decodedStatus, err := url.QueryUnescape(status)
+func (s *RecallService) ProcessRecallWithParams(state string) (*RecallParams, []string, error) {
+	decodedState, err := url.QueryUnescape(state)
 	if err != nil {
-		return nil, nil, ErrStatusFormatError
+		return nil, nil, ErrStateFormatError
 	}
 
-	params, missingParams := s.parseParams(decodedStatus)
+	params, missingParams := s.parseParams(decodedState)
 	if len(missingParams) > 0 {
 		return nil, missingParams, ErrMissingRequiredParam
 	}
@@ -59,7 +59,7 @@ func (s *RecallService) SaveRecall(params *RecallParams, extraParams map[string]
 		UserName:          params.UserName,
 	}
 
-	// 合并 status 中解析出的额外参数和 URL 中的额外参数
+	// 合并 state 中解析出的额外参数和 URL 中的额外参数
 	allParams := make(map[string]string)
 	for k, v := range params.ExtraParams {
 		allParams[k] = v
@@ -80,8 +80,8 @@ func (s *RecallService) SaveRecall(params *RecallParams, extraParams map[string]
 	return &RecallResponse{RecordID: record.ID}, nil
 }
 
-func (s *RecallService) ProcessRecall(status string, extraParams map[string]string) (*RecallResponse, []string, error) {
-	params, missingParams, err := s.ProcessRecallWithParams(status)
+func (s *RecallService) ProcessRecall(state string, extraParams map[string]string) (*RecallResponse, []string, error) {
+	params, missingParams, err := s.ProcessRecallWithParams(state)
 	if err != nil {
 		return nil, missingParams, err
 	}
@@ -89,13 +89,13 @@ func (s *RecallService) ProcessRecall(status string, extraParams map[string]stri
 	return resp, nil, err
 }
 
-func (s *RecallService) parseParams(decodedStatus string) (*RecallParams, []string) {
+func (s *RecallService) parseParams(decodedState string) (*RecallParams, []string) {
 	params := &RecallParams{
 		ExtraParams: make(map[string]string),
 	}
 	var missing []string
 
-	pairs := strings.Split(decodedStatus, "&")
+	pairs := strings.Split(decodedState, "&")
 	for _, pair := range pairs {
 		kv := strings.SplitN(pair, "=", 2)
 		if len(kv) != 2 {

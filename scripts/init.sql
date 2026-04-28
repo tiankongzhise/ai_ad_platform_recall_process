@@ -7,9 +7,11 @@ USE recall_platform;
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     recall_service_name VARCHAR(64) NOT NULL UNIQUE COMMENT '服务用户名',
+    phone VARCHAR(20) COMMENT '手机号',
     password VARCHAR(255) NOT NULL COMMENT '加密密码',
     api_token VARCHAR(64) UNIQUE COMMENT '用户API Token(长期有效)',
     notify_url VARCHAR(512) DEFAULT '' COMMENT '通知回调URL',
+    status TINYINT DEFAULT 1 COMMENT '状态 1正常 0已注销',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_recall_service_name (recall_service_name),

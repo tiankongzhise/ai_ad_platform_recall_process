@@ -59,7 +59,7 @@ func (h *RecallHandler) RecallInfo(c *gin.Context) {
 		"message": "Recall接口使用说明",
 		"data": gin.H{
 			"description": "回调接口使用说明",
-			"format": "/recall?status={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params",
+			"format": "/recall?state={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params",
 			"required_params": []string{"recall_service_name", "platform", "user_name"},
 			"optional_params": []string{"other_params"},
 		},
@@ -67,18 +67,18 @@ func (h *RecallHandler) RecallInfo(c *gin.Context) {
 }
 
 func (h *RecallHandler) HandleRecall(c *gin.Context) {
-	status := c.Query("status")
+	state := c.Query("state")
 
 	// 无参数访问时返回接口使用说明
-	if status == "" {
+	if state == "" {
 		h.RecallInfo(c)
 		return
 	}
 
-	params, missingParams, err := h.recallService.ProcessRecallWithParams(status)
+	params, missingParams, err := h.recallService.ProcessRecallWithParams(state)
 	if err != nil {
-		if errors.Is(err, service.ErrStatusFormatError) {
-			response.BadRequest(c, response.StatusFormatErrorCode, "status参数格式错误，请使用URL编码", nil)
+		if errors.Is(err, service.ErrStateFormatError) {
+			response.BadRequest(c, response.StateFormatErrorCode, "state参数格式错误，请使用URL编码", nil)
 			return
 		}
 		if errors.Is(err, service.ErrMissingRequiredParam) {
@@ -98,10 +98,10 @@ func (h *RecallHandler) HandleRecall(c *gin.Context) {
 		return
 	}
 
-	// 获取 status 之外的所有查询参数作为额外参数
+	// 获取 state 之外的所有查询参数作为额外参数
 	extraParams := make(map[string]string)
 	for key, values := range c.Request.URL.Query() {
-		if key == "status" {
+		if key == "state" {
 			continue
 		}
 		// 只取第一个值
