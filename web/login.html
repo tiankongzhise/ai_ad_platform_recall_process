@@ -122,6 +122,7 @@
                 localStorage.setItem('token', res.data.data.token);
                 localStorage.setItem('tokenExpiry', res.data.data.expires_at);
                 localStorage.setItem('username', res.data.data.username);
+                localStorage.setItem('recall_service_user_uid', res.data.data.recall_service_user_uid);
 
                 // 同时创建JWT（如果用户有api_token的话）
                 const apiToken = localStorage.getItem('api_token');

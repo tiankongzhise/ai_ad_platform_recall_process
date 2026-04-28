@@ -54,6 +54,16 @@ func generateApiToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+// generateRecallServiceUserUid 生成一个随机的RecallServiceUserUid
+// 格式：32位十六进制字符串
+func generateRecallServiceUserUid() (string, error) {
+	bytes := make([]byte, 16) // 16字节 = 32个十六进制字符
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=64"`
 	Password string `json:"password" binding:"required,min=8"`
@@ -62,9 +72,10 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
-	UserID   uint64 `json:"user_id"`
-	Username string `json:"username"`
-	ApiToken string `json:"api_token"` // 注册时自动生成长期有效的ApiToken
+	UserID                uint64 `json:"user_id"`
+	Username              string `json:"username"`
+	RecallServiceUserUid  string `json:"recall_service_user_uid"` // 注册时自动生成的用户唯一标识
+	ApiToken              string `json:"api_token"`                 // 注册时自动生成长期有效的ApiToken
 }
 
 func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
@@ -101,11 +112,18 @@ func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
 		return nil, err
 	}
 
+	// 注册时自动生成RecallServiceUserUid
+	recallServiceUserUid, err := generateRecallServiceUserUid()
+	if err != nil {
+		return nil, err
+	}
+
 	user := &model.User{
-		RecallServiceName: req.Username,
-		Phone:             req.Phone,
-		Password:          hashedPassword,
-		ApiToken:          apiToken,
+		RecallServiceName:    req.Username,
+		RecallServiceUserUid: recallServiceUserUid,
+		Phone:                req.Phone,
+		Password:             hashedPassword,
+		ApiToken:             apiToken,
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
@@ -113,9 +131,10 @@ func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
 	}
 
 	return &RegisterResponse{
-		UserID:   user.ID,
-		Username: user.RecallServiceName,
-		ApiToken: apiToken,
+		UserID:               user.ID,
+		Username:             user.RecallServiceName,
+		RecallServiceUserUid: recallServiceUserUid,
+		ApiToken:             apiToken,
 	}, nil
 }
 
@@ -125,10 +144,11 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expires_at"`
-	UserID    uint64    `json:"user_id"`
-	Username  string    `json:"username"`
+	Token                 string    `json:"token"`
+	ExpiresAt             time.Time `json:"expires_at"`
+	UserID                uint64    `json:"user_id"`
+	Username              string    `json:"username"`
+	RecallServiceUserUid  string    `json:"recall_service_user_uid"` // 用户唯一标识，显示在用户名旁边
 }
 
 func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
@@ -150,10 +170,11 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 	}
 
 	return &LoginResponse{
-		Token:     tokenStr,
-		ExpiresAt: expiresAt,
-		UserID:    user.ID,
-		Username:  user.RecallServiceName,
+		Token:                tokenStr,
+		ExpiresAt:            expiresAt,
+		UserID:               user.ID,
+		Username:             user.RecallServiceName,
+		RecallServiceUserUid: user.RecallServiceUserUid,
 	}, nil
 }
 
@@ -668,4 +689,29 @@ func (s *AuthService) DeleteAccount(userID uint64, req DeleteAccountRequest) (*D
 	_ = s.refreshTokenRepo.DeleteByUserID(userID)
 
 	return &DeleteAccountResponse{Message: "账户已注销"}, nil
+}
+
+// GetRecallServiceUserUidByUsername 通过用户名查询 RecallServiceUserUid
+type GetRecallServiceUserUidByUsernameRequest struct {
+	Username string `json:"username" binding:"required"`
+}
+
+type GetRecallServiceUserUidByUsernameResponse struct {
+	Username             string `json:"username"`
+	RecallServiceUserUid string `json:"recall_service_user_uid"`
+}
+
+func (s *AuthService) GetRecallServiceUserUidByUsername(req GetRecallServiceUserUidByUsernameRequest) (*GetRecallServiceUserUidByUsernameResponse, error) {
+	user, err := s.userRepo.FindByUsername(req.Username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return &GetRecallServiceUserUidByUsernameResponse{
+		Username:             user.RecallServiceName,
+		RecallServiceUserUid: user.RecallServiceUserUid,
+	}, nil
 }

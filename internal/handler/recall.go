@@ -59,9 +59,14 @@ func (h *RecallHandler) RecallInfo(c *gin.Context) {
 		"message": "Recall接口使用说明",
 		"data": gin.H{
 			"description": "回调接口使用说明",
-			"format": "/recall?state={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params",
-			"required_params": []string{"recall_service_name", "platform", "user_name"},
-			"optional_params": []string{"other_params"},
+			"format":       "/recall?state=RecallServiceUserUid_PlatformNumber_UserNumber",
+			"format_example": "RecallServiceUserUid_PlatformNumber_UserNumber",
+			"params": gin.H{
+				"RecallServiceUserUid": "32位十六进制字符串，用户注册时生成，用于标识用户",
+				"PlatformNumber":       "不超过13位的纯数字，由用户自行管理对应关系",
+				"UserNumber":           "不超过13位的纯数字，由用户自行管理对应关系",
+			},
+			"example": "e8b5f1a2c3d4e5f6a7b8c9d0e1f2a3b4_12345_67890",
 		},
 	})
 }
@@ -78,7 +83,23 @@ func (h *RecallHandler) HandleRecall(c *gin.Context) {
 	params, missingParams, err := h.recallService.ProcessRecallWithParams(state)
 	if err != nil {
 		if errors.Is(err, service.ErrStateFormatError) {
-			response.BadRequest(c, response.StateFormatErrorCode, "state参数格式错误，请使用URL编码", nil)
+			response.BadRequest(c, response.StateFormatErrorCode, "state参数格式错误，格式应为：RecallServiceUserUid_PlatformNumber_UserNumber", nil)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidUid) {
+			response.BadRequest(c, response.StateFormatErrorCode, "RecallServiceUserUid格式错误，应为32位十六进制字符串", nil)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidPlatformNumber) {
+			response.BadRequest(c, response.StateFormatErrorCode, "PlatformNumber格式错误，应为不超过13位的纯数字", nil)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidUserNumber) {
+			response.BadRequest(c, response.StateFormatErrorCode, "UserNumber格式错误，应为不超过13位的纯数字", nil)
+			return
+		}
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户不存在或RecallServiceUserUid无效", nil)
 			return
 		}
 		if errors.Is(err, service.ErrMissingRequiredParam) {
@@ -116,8 +137,8 @@ func (h *RecallHandler) HandleRecall(c *gin.Context) {
 		return
 	}
 
-	if params.RecallServiceName != "" && params.Platform != "" && params.UserName != "" {
-		h.notifyService.TriggerNotify(params.RecallServiceName, params.Platform, params.UserName)
+	if params.RecallServiceName != "" && params.PlatformNumber != "" && params.UserNumber != "" {
+		h.notifyService.TriggerNotify(params.RecallServiceName, params.PlatformNumber, params.UserNumber)
 	}
 
 	response.SuccessWithMessage(c, "回调处理成功", resp)

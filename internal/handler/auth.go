@@ -325,3 +325,24 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 
 	response.Success(c, resp)
 }
+
+// GetRecallServiceUserUidByUsername 通过用户名查询 RecallServiceUserUid
+func (h *AuthHandler) GetRecallServiceUserUidByUsername(c *gin.Context) {
+	var req service.GetRecallServiceUserUidByUsernameRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, response.InternalErrorCode, "请求参数错误: "+err.Error(), nil)
+		return
+	}
+
+	resp, err := h.authService.GetRecallServiceUserUidByUsername(req)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户不存在", nil)
+			return
+		}
+		response.InternalError(c, "查询失败: "+err.Error())
+		return
+	}
+
+	response.Success(c, resp)
+}

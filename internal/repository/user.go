@@ -85,3 +85,12 @@ func (r *UserRepository) FindActiveByPhone(phone string) (*model.User, error) {
 	}
 	return &user, nil
 }
+
+func (r *UserRepository) FindByRecallServiceUserUid(uid string) (*model.User, error) {
+	var user model.User
+	err := r.db.Unscoped().Where("recall_service_user_uid = ?", uid).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}

@@ -101,6 +101,7 @@
             <h1>广告回调平台 - 控制台</h1>
             <div class="user-info">
                 <span id="username"></span>
+                <span id="uidDisplaySmall" style="font-size: 12px; color: #666; margin-left: 8px;"></span>
                 <button id="btnLogout" class="btn btn-logout">登出</button>
             </div>
         </header>
@@ -117,6 +118,16 @@
                 <div style="margin-top: 12px;">
                     <button id="btnViewApiToken" class="btn btn-outline" style="background: rgba(255,255,255,0.2); color: white; border-color: white;">查看Token</button>
                     <button id="btnChangeApiToken" class="btn btn-outline" style="background: rgba(255,255,255,0.2); color: white; border-color: white;">更换Token</button>
+                </div>
+            </section>
+
+            <!-- RecallServiceUserUid 区域 -->
+            <section class="api-token-section" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                <h3>🆔 RecallServiceUserUid（用户唯一标识）</h3>
+                <p>此UID用于回调接口的state参数，请妥善保管，显示在用户名旁边。</p>
+                <div class="token-display">
+                    <input type="password" id="uidDisplay" class="form-control hidden-token" readonly style="font-size: 14px;">
+                    <button type="button" class="toggle-visibility" onclick="toggleTokenVisibility('uidDisplay', this)">👁️</button>
                 </div>
             </section>
 
@@ -229,12 +240,12 @@
                 <div class="info-box">
                     <p><strong>接口地址:</strong> <code>/recall</code></p>
                     <p><strong>调用格式:</strong></p>
-                    <pre>/recall?state={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params</pre>
-                    <p><strong>必填参数:</strong></p>
+                    <pre>/recall?state=RecallServiceUserUid_PlatformNumber_UserNumber</pre>
+                    <p><strong>参数说明:</strong></p>
                     <ul>
-                        <li><code>recall_service_name</code> - 注册的回调服务用户名</li>
-                        <li><code>platform</code> - 回调来源平台</li>
-                        <li><code>user_name</code> - 授权用户名称</li>
+                        <li><code>RecallServiceUserUid</code> - 32位十六进制字符串，用户唯一标识（显示在用户名旁边）</li>
+                        <li><code>PlatformNumber</code> - 不超过13位的纯数字，由用户自行管理对应关系</li>
+                        <li><code>UserNumber</code> - 不超过13位的纯数字，由用户自行管理对应关系</li>
                     </ul>
                     <p><strong>示例:</strong></p>
                     <pre id="exampleUrl"></pre>
@@ -254,6 +265,7 @@
         let tokenExpiry = localStorage.getItem('jwt_expires_at') || localStorage.getItem('tokenExpiry');
         let apiToken = localStorage.getItem('api_token');
         let username = localStorage.getItem('username');
+        let uid = localStorage.getItem('recall_service_user_uid');
 
         if (!currentToken) {
             window.location.href = '/web/login.html';
@@ -264,6 +276,17 @@
 
         // 显示用户名
         document.getElementById('username').textContent = username || '未登录';
+
+        // 显示 UID
+        function loadUid() {
+            const storedUid = localStorage.getItem('recall_service_user_uid');
+            if (storedUid) {
+                document.getElementById('uidDisplay').value = storedUid;
+                document.getElementById('uidDisplaySmall').textContent = '(UID: ' + storedUid + ')';
+                uid = storedUid;
+            }
+        }
+        loadUid();
 
         // Token显示切换功能
         function toggleTokenVisibility(inputId, btn) {
@@ -446,16 +469,14 @@
         loadJWTTokenInfo();
 
         function updateExampleUrl() {
-            const serviceName = document.getElementById('queryServiceName').value || 'YOUR_SERVICE_NAME';
-            const platform = document.getElementById('queryPlatform').value || 'YOUR_PLATFORM';
-            const userName = document.getElementById('queryUserName').value || 'YOUR_USER_NAME';
-            const params = `recall_service_name=${serviceName}&platform=${platform}&user_name=${userName}`;
-            const encoded = encodeURIComponent(params);
-            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?state=${encoded}&other_param=value`;
+            const storedUid = localStorage.getItem('recall_service_user_uid') || 'YOUR_UID';
+            const platformNumber = document.getElementById('queryPlatform').value || '12345';
+            const userNumber = document.getElementById('queryUserName').value || '67890';
+            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?state=${storedUid}_${platformNumber}_${userNumber}`;
         }
 
         updateExampleUrl();
-        document.querySelectorAll('#queryServiceName, #queryPlatform, #queryUserName').forEach(el => {
+        document.querySelectorAll('#queryPlatform, #queryUserName').forEach(el => {
             el.addEventListener('input', updateExampleUrl);
         });
 
@@ -472,6 +493,7 @@
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('jwt_expires_at');
             localStorage.removeItem('refresh_expires_at');
+            localStorage.removeItem('recall_service_user_uid');
             window.location.href = '/web/login.html';
         });
 
