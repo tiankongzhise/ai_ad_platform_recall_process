@@ -32,7 +32,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			response.BadRequest(c, response.UsernameExistsCode, "用户名已存在", nil)
 			return
 		}
-		response.InternalError(c, "注册成功: "+err.Error())
+		if errors.Is(err, service.ErrPhoneAlreadyExists) {
+			response.BadRequest(c, response.UsernameExistsCode, "手机号已被注册", nil)
+			return
+		}
+		response.InternalError(c, "注册失败: "+err.Error())
 		return
 	}
 
