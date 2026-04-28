@@ -430,6 +430,24 @@ func (s *AuthService) GetApiToken(userID uint64) (*GetApiTokenResponse, error) {
 	}, nil
 }
 
+// GetAccountInfo 获取用户账户信息
+type AccountInfoResponse struct {
+	Username               string `json:"username"`
+	RecallServiceUserUid   string `json:"recall_service_user_uid"`
+}
+
+func (s *AuthService) GetAccountInfo(userID uint64) (*AccountInfoResponse, error) {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AccountInfoResponse{
+		Username:             user.RecallServiceName,
+		RecallServiceUserUid: user.RecallServiceUserUid,
+	}, nil
+}
+
 type RefreshResponse struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expires_at"`

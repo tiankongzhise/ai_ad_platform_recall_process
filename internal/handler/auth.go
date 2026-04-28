@@ -187,6 +187,23 @@ func (h *AuthHandler) GetApiToken(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// GetAccountInfo 获取当前用户的账户信息（需认证）
+func (h *AuthHandler) GetAccountInfo(c *gin.Context) {
+	user := GetUserFromContext(c)
+	if user == nil {
+		response.Unauthorized(c, response.InvalidTokenCode, "用户未认证")
+		return
+	}
+
+	resp, err := h.authService.GetAccountInfo(user.ID)
+	if err != nil {
+		response.InternalError(c, "获取账户信息失败: "+err.Error())
+		return
+	}
+
+	response.Success(c, resp)
+}
+
 func (h *AuthHandler) Logout(c *gin.Context) {
 	token := c.GetString(TokenContextKey)
 	if token == "" {

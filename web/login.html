@@ -165,8 +165,8 @@
                 // 获取用户信息
                 try {
                     axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.data.jwt_token}`;
-                    const userRes = await axios.get(`${API_BASE}/api/account/get-api-token`);
-                    localStorage.setItem('username', 'User'); // 简化处理
+                    const userRes = await axios.get(`${API_BASE}/api/account/info`);
+                    localStorage.setItem('username', userRes.data.data.username);
                 } catch (e) {
                     console.log('Get user info failed');
                 }

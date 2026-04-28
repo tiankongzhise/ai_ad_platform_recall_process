@@ -97,6 +97,7 @@ func main() {
 				account.POST("/delete", authHandler.DeleteAccount)
 				account.GET("/get-api-token", authHandler.GetApiToken)       // 获取ApiToken
 				account.POST("/update-api-token", authHandler.UpdateApiToken) // 更换ApiToken
+				account.GET("/info", authHandler.GetAccountInfo)             // 获取账户信息
 			}
 
 			// JWT Token管理
