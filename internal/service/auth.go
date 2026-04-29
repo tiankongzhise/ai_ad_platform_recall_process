@@ -78,8 +78,10 @@ type RegisterResponse struct {
 }
 
 func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
-	_, err := s.userRepo.FindByUsername(req.Username)
+	// 检查是否存在活跃用户（logout_at = -1）
+	_, err := s.userRepo.FindActiveByUsername(req.Username)
 	if err == nil {
+		// 存在同名活跃用户，不允许注册
 		return nil, ErrUserExists
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -155,6 +157,11 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
+	}
+
+	// 检查用户是否已注销
+	if user.Status == 0 {
+		return nil, ErrInvalidCredentials
 	}
 
 	if !utils.CheckPassword(req.Password, user.Password) {
@@ -478,9 +485,14 @@ func (s *AuthService) ValidateToken(tokenStr string) (*model.User, error) {
 		return nil, ErrInvalidToken
 	}
 
-	// 验证用户是否存在
+	// 验证用户是否存在且未注销
 	user, err := s.userRepo.FindByID(claims.UserID)
 	if err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	// 检查用户是否已注销
+	if user.Status == 0 || user.LogoutAt != -1 {
 		return nil, ErrInvalidToken
 	}
 
@@ -689,6 +701,11 @@ func (s *AuthService) DeleteAccount(userID uint64, req DeleteAccountRequest) (*D
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		return nil, err
+	}
+
+	// 检查用户是否已注销
+	if user.Status == 0 || user.LogoutAt != -1 {
+		return nil, errors.New("账户已注销")
 	}
 
 	if user.UserName != req.ConfirmUsername {

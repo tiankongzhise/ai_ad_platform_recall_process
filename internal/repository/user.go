@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"ai_ad_platform_recall_process/internal/model"
 	"ai_ad_platform_recall_process/pkg/database"
 
@@ -24,6 +26,16 @@ func (r *UserRepository) Create(user *model.User) error {
 func (r *UserRepository) FindByUsername(username string) (*model.User, error) {
 	var user model.User
 	err := r.db.Where("user_name = ?", username).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// FindActiveByUsername 查找活跃用户（logout_at = -1）
+func (r *UserRepository) FindActiveByUsername(username string) (*model.User, error) {
+	var user model.User
+	err := r.db.Where("user_name = ? AND logout_at = -1", username).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +73,10 @@ func (r *UserRepository) UpdatePhone(userID uint64, phone string) error {
 }
 
 func (r *UserRepository) Delete(userID uint64) error {
-	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("status", 0).Error
+	return r.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"status":    0,
+		"logout_at": time.Now().Unix(),
+	}).Error
 }
 
 func (r *UserRepository) UpdateApiToken(userID uint64, apiToken string) error {
@@ -70,7 +85,7 @@ func (r *UserRepository) UpdateApiToken(userID uint64, apiToken string) error {
 
 func (r *UserRepository) FindByApiToken(apiToken string) (*model.User, error) {
 	var user model.User
-	err := r.db.Where("api_token = ?", apiToken).First(&user).Error
+	err := r.db.Where("api_token = ? AND logout_at = -1", apiToken).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +94,7 @@ func (r *UserRepository) FindByApiToken(apiToken string) (*model.User, error) {
 
 func (r *UserRepository) FindActiveByPhone(phone string) (*model.User, error) {
 	var user model.User
-	err := r.db.Unscoped().Where("phone = ? AND status = 1", phone).First(&user).Error
+	err := r.db.Unscoped().Where("phone = ? AND logout_at = -1", phone).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
