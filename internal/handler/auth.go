@@ -343,7 +343,7 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// GetUidByUsername 通过用户名查询 uid
+// GetUidByUsername 通过用户名查询 uid（包含已注销用户）
 func (h *AuthHandler) GetUidByUsername(c *gin.Context) {
 	username := c.Query("username")
 	if username == "" {
@@ -356,6 +356,28 @@ func (h *AuthHandler) GetUidByUsername(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			response.BadRequest(c, response.InvalidCredentialsCode, "用户不存在", nil)
+			return
+		}
+		response.InternalError(c, "查询失败: "+err.Error())
+		return
+	}
+
+	response.Success(c, resp)
+}
+
+// GetActivateUidByUsername 通过用户名查询活跃用户的 uid
+func (h *AuthHandler) GetActivateUidByUsername(c *gin.Context) {
+	username := c.Query("username")
+	if username == "" {
+		response.BadRequest(c, response.InternalErrorCode, "username参数不能为空", nil)
+		return
+	}
+
+	req := service.GetActivateUidByUsernameRequest{Username: username}
+	resp, err := h.authService.GetActivateUidByUsername(req)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户不存在或已注销", nil)
 			return
 		}
 		response.InternalError(c, "查询失败: "+err.Error())

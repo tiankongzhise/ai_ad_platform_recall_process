@@ -729,7 +729,7 @@ func (s *AuthService) DeleteAccount(userID uint64, req DeleteAccountRequest) (*D
 	return &DeleteAccountResponse{Message: "账户已注销"}, nil
 }
 
-// GetUidByUsername 通过用户名查询 UID
+// GetUidByUsername 通过用户名查询 UID（包含已注销用户）
 type GetUidByUsernameRequest struct {
 	Username string `json:"username" binding:"required"`
 }
@@ -749,6 +749,31 @@ func (s *AuthService) GetUidByUsername(req GetUidByUsernameRequest) (*GetUidByUs
 	}
 
 	return &GetUidByUsernameResponse{
+		Username: user.UserName,
+		UID:      user.UID,
+	}, nil
+}
+
+// GetActivateUidByUsername 通过用户名查询活跃用户的 UID（仅查询 logout_at = -1 的用户）
+type GetActivateUidByUsernameRequest struct {
+	Username string `json:"username" binding:"required"`
+}
+
+type GetActivateUidByUsernameResponse struct {
+	Username string `json:"username"`
+	UID      string `json:"uid"`
+}
+
+func (s *AuthService) GetActivateUidByUsername(req GetActivateUidByUsernameRequest) (*GetActivateUidByUsernameResponse, error) {
+	user, err := s.userRepo.FindActiveByUsername(req.Username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return &GetActivateUidByUsernameResponse{
 		Username: user.UserName,
 		UID:      user.UID,
 	}, nil

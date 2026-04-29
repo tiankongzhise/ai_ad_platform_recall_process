@@ -75,7 +75,8 @@ func main() {
 			auth.POST("/send-code", authHandler.SendRegisterCode)
 			auth.POST("/send-reset-code", authHandler.SendResetCode)
 			auth.POST("/reset-password", authHandler.ResetPassword)
-			auth.GET("/get-uid", authHandler.GetUidByUsername) // 通过用户名查询 uid
+			auth.GET("/get-uid", authHandler.GetUidByUsername)                  // 通过用户名查询 uid（包含已注销用户）
+			auth.GET("/get-activate-uid", authHandler.GetActivateUidByUsername) // 通过用户名查询活跃用户的 uid
 		}
 
 		protected := api.Group("")

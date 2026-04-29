@@ -269,7 +269,7 @@
         // 显示用户名旁边的 UID
         async function loadUidForHeader() {
             try {
-                const res = await axios.get(`${API_BASE}/api/auth/get-uid`, {
+                const res = await axios.get(`${API_BASE}/api/auth/get-activate-uid`, {
                     params: { username: username }
                 });
                 const uid = res.data.data.uid;
@@ -469,7 +469,7 @@
         // 页面加载时获取 UID 并更新示例
         async function loadUidAndUpdateExample() {
             try {
-                const res = await axios.get(`${API_BASE}/api/auth/get-uid`, {
+                const res = await axios.get(`${API_BASE}/api/auth/get-activate-uid`, {
                     params: { username: username }
                 });
                 const uid = res.data.data.uid;
