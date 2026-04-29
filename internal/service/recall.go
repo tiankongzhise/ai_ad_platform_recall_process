@@ -3,7 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
-	"net/url"
+	"regexp"
 	"strings"
 
 	"ai_ad_platform_recall_process/internal/model"
@@ -11,9 +11,17 @@ import (
 )
 
 var (
-	ErrStateFormatError     = errors.New("state参数格式错误，请使用URL编码")
-	ErrMissingRequiredParam = errors.New("缺少必填参数")
+	ErrStateFormatError      = errors.New("state参数格式错误，应为Uid_Platform_UserTag格式")
+	ErrMissingRequiredParam  = errors.New("缺少必填参数")
+	ErrInvalidUid            = errors.New("uid格式错误，应为32位十六进制字符串")
+	ErrInvalidPlatformNumber = errors.New("platform格式错误，应为不超过13位的纯数字")
+	ErrInvalidUserTag        = errors.New("user_tag格式错误，应为不超过13位的纯数字")
 )
+
+// 32位十六进制字符串的正则表达式
+var uidRegex = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
+// 不超过13位的纯数字正则表达式
+var numberRegex = regexp.MustCompile(`^[0-9]{1,13}$`)
 
 type RecallService struct {
 	recallRepo *repository.RecallRepository
@@ -28,25 +36,56 @@ func NewRecallService() *RecallService {
 }
 
 type RecallParams struct {
-	RecallServiceName string
-	Platform          string
-	UserName          string
-	ExtraParams       map[string]string
+	UID        string
+	Platform   string
+	UserTag    string
+	UserName   string // 通过 UID 查询得到
+	ExtraParams          map[string]string
 }
 
 type RecallResponse struct {
-	RecordID uint64 `json:"record_id"`
+	Success bool `json:"success"`
 }
 
 func (s *RecallService) ProcessRecallWithParams(state string) (*RecallParams, []string, error) {
-	decodedState, err := url.QueryUnescape(state)
-	if err != nil {
+	// state 格式：Uid_Platform_UserTag
+	// 不需要 URL 解码，直接解析
+	parts := strings.Split(state, "_")
+	if len(parts) != 3 {
 		return nil, nil, ErrStateFormatError
 	}
 
-	params, missingParams := s.parseParams(decodedState)
-	if len(missingParams) > 0 {
-		return nil, missingParams, ErrMissingRequiredParam
+	uid := parts[0]
+	platform := parts[1]
+	userTag := parts[2]
+
+	// 验证 uid 格式：32位十六进制字符串
+	if !uidRegex.MatchString(uid) {
+		return nil, nil, ErrInvalidUid
+	}
+
+	// 验证 platform：不超过13位的纯数字
+	if !numberRegex.MatchString(platform) {
+		return nil, nil, ErrInvalidPlatformNumber
+	}
+
+	// 验证 user_tag：不超过13位的纯数字
+	if !numberRegex.MatchString(userTag) {
+		return nil, nil, ErrInvalidUserTag
+	}
+
+	// 通过 uid 查找对应 user_name
+	user, err := s.userRepo.FindByUID(uid)
+	if err != nil {
+		return nil, nil, ErrUserNotFound
+	}
+
+	params := &RecallParams{
+		UID:      uid,
+		Platform: platform,
+		UserTag:  userTag,
+		UserName: user.UserName,
+		ExtraParams:          make(map[string]string),
 	}
 
 	return params, nil, nil
@@ -54,13 +93,18 @@ func (s *RecallService) ProcessRecallWithParams(state string) (*RecallParams, []
 
 func (s *RecallService) SaveRecall(params *RecallParams, extraParams map[string]string) (*RecallResponse, error) {
 	record := &model.RecallRecord{
-		RecallServiceName: params.RecallServiceName,
-		Platform:          params.Platform,
-		UserName:          params.UserName,
+		UserName: params.UserName,
+		UID:      params.UID,
+		Platform: params.Platform,
+		UserTag:  params.UserTag,
 	}
 
 	// 合并 state 中解析出的额外参数和 URL 中的额外参数
 	allParams := make(map[string]string)
+	// 添加 UID 和数字字段到额外参数中，方便追踪
+	allParams["uid"] = params.UID
+	allParams["platform"] = params.Platform
+	allParams["user_tag"] = params.UserTag
 	for k, v := range params.ExtraParams {
 		allParams[k] = v
 	}
@@ -77,56 +121,7 @@ func (s *RecallService) SaveRecall(params *RecallParams, extraParams map[string]
 		return nil, err
 	}
 
-	return &RecallResponse{RecordID: record.ID}, nil
-}
-
-func (s *RecallService) ProcessRecall(state string, extraParams map[string]string) (*RecallResponse, []string, error) {
-	params, missingParams, err := s.ProcessRecallWithParams(state)
-	if err != nil {
-		return nil, missingParams, err
-	}
-	resp, err := s.SaveRecall(params, extraParams)
-	return resp, nil, err
-}
-
-func (s *RecallService) parseParams(decodedState string) (*RecallParams, []string) {
-	params := &RecallParams{
-		ExtraParams: make(map[string]string),
-	}
-	var missing []string
-
-	pairs := strings.Split(decodedState, "&")
-	for _, pair := range pairs {
-		kv := strings.SplitN(pair, "=", 2)
-		if len(kv) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(kv[0])
-		value := strings.TrimSpace(kv[1])
-
-		switch key {
-		case "recall_service_name":
-			params.RecallServiceName = value
-		case "platform":
-			params.Platform = value
-		case "user_name":
-			params.UserName = value
-		default:
-			params.ExtraParams[key] = value
-		}
-	}
-
-	if params.RecallServiceName == "" {
-		missing = append(missing, "recall_service_name")
-	}
-	if params.Platform == "" {
-		missing = append(missing, "platform")
-	}
-	if params.UserName == "" {
-		missing = append(missing, "user_name")
-	}
-
-	return params, missing
+	return &RecallResponse{Success: true}, nil
 }
 
 func (s *RecallService) Query(params repository.QueryParams) (*repository.QueryResult, error) {

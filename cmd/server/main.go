@@ -75,6 +75,8 @@ func main() {
 			auth.POST("/send-code", authHandler.SendRegisterCode)
 			auth.POST("/send-reset-code", authHandler.SendResetCode)
 			auth.POST("/reset-password", authHandler.ResetPassword)
+			auth.GET("/get-uid", authHandler.GetUidByUsername)                  // 通过用户名查询 uid（包含已注销用户）
+			auth.GET("/get-activate-uid", authHandler.GetActivateUidByUsername) // 通过用户名查询活跃用户的 uid
 		}
 
 		protected := api.Group("")
@@ -96,6 +98,7 @@ func main() {
 				account.POST("/delete", authHandler.DeleteAccount)
 				account.GET("/get-api-token", authHandler.GetApiToken)       // 获取ApiToken
 				account.POST("/update-api-token", authHandler.UpdateApiToken) // 更换ApiToken
+				account.GET("/info", authHandler.GetAccountInfo)             // 获取账户信息
 			}
 
 			// JWT Token管理

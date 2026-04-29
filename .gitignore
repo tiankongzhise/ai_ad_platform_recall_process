@@ -26,3 +26,5 @@ vendor/
 # 系统文件
 .DS_Store
 Thumbs.db
+
+ad_platform_recall_service

@@ -187,6 +187,23 @@ func (h *AuthHandler) GetApiToken(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// GetAccountInfo 获取当前用户的账户信息（需认证）
+func (h *AuthHandler) GetAccountInfo(c *gin.Context) {
+	user := GetUserFromContext(c)
+	if user == nil {
+		response.Unauthorized(c, response.InvalidTokenCode, "用户未认证")
+		return
+	}
+
+	resp, err := h.authService.GetAccountInfo(user.ID)
+	if err != nil {
+		response.InternalError(c, "获取账户信息失败: "+err.Error())
+		return
+	}
+
+	response.Success(c, resp)
+}
+
 func (h *AuthHandler) Logout(c *gin.Context) {
 	token := c.GetString(TokenContextKey)
 	if token == "" {
@@ -247,6 +264,10 @@ func (h *AuthHandler) SendResetCode(c *gin.Context) {
 			response.BadRequest(c, response.InvalidCredentialsCode, "手机号未注册", nil)
 			return
 		}
+		if errors.Is(err, service.ErrUsernamePhoneMismatch) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户名与手机号不匹配", nil)
+			return
+		}
 		response.InternalError(c, "发送验证码失败: "+err.Error())
 		return
 	}
@@ -268,7 +289,11 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, service.ErrPhoneNotFound) {
-			response.BadRequest(c, response.InvalidCredentialsCode, "手机号未注册", nil)
+			response.BadRequest(c, response.InvalidCredentialsCode, "手机号未注册或账户已注销", nil)
+			return
+		}
+		if errors.Is(err, service.ErrUsernamePhoneMismatch) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户名与手机号不匹配", nil)
 			return
 		}
 		response.InternalError(c, "重置密码失败: "+err.Error())
@@ -320,6 +345,50 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 	resp, err := h.authService.DeleteAccount(user.ID, req)
 	if err != nil {
 		response.BadRequest(c, response.InternalErrorCode, err.Error(), nil)
+		return
+	}
+
+	response.Success(c, resp)
+}
+
+// GetUidByUsername 通过用户名查询 uid（包含已注销用户）
+func (h *AuthHandler) GetUidByUsername(c *gin.Context) {
+	username := c.Query("username")
+	if username == "" {
+		response.BadRequest(c, response.InternalErrorCode, "username参数不能为空", nil)
+		return
+	}
+
+	req := service.GetUidByUsernameRequest{Username: username}
+	resp, err := h.authService.GetUidByUsername(req)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户不存在", nil)
+			return
+		}
+		response.InternalError(c, "查询失败: "+err.Error())
+		return
+	}
+
+	response.Success(c, resp)
+}
+
+// GetActivateUidByUsername 通过用户名查询活跃用户的 uid
+func (h *AuthHandler) GetActivateUidByUsername(c *gin.Context) {
+	username := c.Query("username")
+	if username == "" {
+		response.BadRequest(c, response.InternalErrorCode, "username参数不能为空", nil)
+		return
+	}
+
+	req := service.GetActivateUidByUsernameRequest{Username: username}
+	resp, err := h.authService.GetActivateUidByUsername(req)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户不存在或已注销", nil)
+			return
+		}
+		response.InternalError(c, "查询失败: "+err.Error())
 		return
 	}
 

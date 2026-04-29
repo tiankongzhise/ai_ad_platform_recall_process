@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log"
 	"time"
 
 	"ai_ad_platform_recall_process/internal/config"
@@ -25,6 +26,8 @@ var (
 	ErrPhoneAlreadyExists  = errors.New("手机号已被注册")
 	ErrInvalidApiToken     = errors.New("ApiToken无效")
 	ErrInvalidRefreshToken = errors.New("RefreshToken无效或已过期")
+	ErrUserNotActive       = errors.New("账户已注销或未生效")
+	ErrUsernamePhoneMismatch = errors.New("用户名与手机号不匹配")
 )
 
 type AuthService struct {
@@ -54,6 +57,16 @@ func generateApiToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+// generateUID 生成用户唯一UID
+// 格式：32位十六进制字符串
+func generateUID() (string, error) {
+	bytes := make([]byte, 16) // 16字节 = 32个十六进制字符
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=64"`
 	Password string `json:"password" binding:"required,min=8"`
@@ -62,14 +75,16 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
-	UserID   uint64 `json:"user_id"`
 	Username string `json:"username"`
+	UID      string `json:"uid"` // 注册时自动生成的用户唯一标识
 	ApiToken string `json:"api_token"` // 注册时自动生成长期有效的ApiToken
 }
 
 func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
-	_, err := s.userRepo.FindByUsername(req.Username)
+	// 检查是否存在活跃用户（logout_at = -1）
+	_, err := s.userRepo.FindActiveByUsername(req.Username)
 	if err == nil {
+		// 存在同名活跃用户，不允许注册
 		return nil, ErrUserExists
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -101,20 +116,32 @@ func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
 		return nil, err
 	}
 
-	user := &model.User{
-		RecallServiceName: req.Username,
-		Phone:             req.Phone,
-		Password:          hashedPassword,
-		ApiToken:          apiToken,
+	// 注册时自动生成UID
+	uid, err := generateUID()
+	if err != nil {
+		return nil, err
 	}
+
+	user := &model.User{
+		UserName: req.Username,
+		UID:      uid,
+		Phone:    req.Phone,
+		Password: hashedPassword,
+		ApiToken: apiToken,
+		Status:   1,    // 显式设置活跃状态
+		LogoutAt: -1,  // 显式设置活跃用户标记
+	}
+
+	// 调试日志：确认 LogoutAt 值
+	log.Printf("[DEBUG Register] 创建用户 user_name=%s, logout_at=%d", user.UserName, user.LogoutAt)
 
 	if err := s.userRepo.Create(user); err != nil {
 		return nil, err
 	}
 
 	return &RegisterResponse{
-		UserID:   user.ID,
-		Username: user.RecallServiceName,
+		Username: user.UserName,
+		UID:      uid,
 		ApiToken: apiToken,
 	}, nil
 }
@@ -127,17 +154,23 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expires_at"`
-	UserID    uint64    `json:"user_id"`
 	Username  string    `json:"username"`
+	UID       string    `json:"uid"` // 用户唯一标识，显示在用户名旁边
 }
 
 func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
-	user, err := s.userRepo.FindByUsername(req.Username)
+	// 使用 FindActiveByUsername 查询活跃用户（logout_at = -1）
+	user, err := s.userRepo.FindActiveByUsername(req.Username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
+	}
+
+	// 双重检查：确保用户状态正常（防御性编程）
+	if user.Status == 0 || user.LogoutAt != -1 {
+		return nil, ErrInvalidCredentials
 	}
 
 	if !utils.CheckPassword(req.Password, user.Password) {
@@ -152,8 +185,8 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 	return &LoginResponse{
 		Token:     tokenStr,
 		ExpiresAt: expiresAt,
-		UserID:    user.ID,
-		Username:  user.RecallServiceName,
+		Username:  user.UserName,
+		UID:       user.UID,
 	}, nil
 }
 
@@ -409,6 +442,24 @@ func (s *AuthService) GetApiToken(userID uint64) (*GetApiTokenResponse, error) {
 	}, nil
 }
 
+// GetAccountInfo 获取用户账户信息
+type AccountInfoResponse struct {
+	Username string `json:"username"`
+	UID      string `json:"uid"`
+}
+
+func (s *AuthService) GetAccountInfo(userID uint64) (*AccountInfoResponse, error) {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AccountInfoResponse{
+		Username: user.UserName,
+		UID:      user.UID,
+	}, nil
+}
+
 type RefreshResponse struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expires_at"`
@@ -443,9 +494,14 @@ func (s *AuthService) ValidateToken(tokenStr string) (*model.User, error) {
 		return nil, ErrInvalidToken
 	}
 
-	// 验证用户是否存在
+	// 验证用户是否存在且未注销
 	user, err := s.userRepo.FindByID(claims.UserID)
 	if err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	// 检查用户是否已注销
+	if user.Status == 0 || user.LogoutAt != -1 {
 		return nil, ErrInvalidToken
 	}
 
@@ -542,7 +598,8 @@ func (s *AuthService) generateRefreshToken(userID uint64) (string, time.Time, er
 }
 
 type SendCodeRequest struct {
-	Phone string `json:"phone" binding:"required,len=11"`
+	Phone    string `json:"phone" binding:"required,len=11"`
+	Username string `json:"username"` // 可选，忘记密码时需要
 }
 
 type SendCodeResponse struct {
@@ -558,7 +615,8 @@ func (s *AuthService) SendRegisterCode(req SendCodeRequest) (*SendCodeResponse, 
 }
 
 func (s *AuthService) SendResetCode(req SendCodeRequest) (*SendCodeResponse, error) {
-	user, err := s.userRepo.FindByPhone(req.Phone)
+	// 使用 FindActiveByPhone 查找活跃用户（status=1 且 logout_at=-1）
+	user, err := s.userRepo.FindActiveByPhone(req.Phone)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrPhoneNotFound
@@ -569,6 +627,13 @@ func (s *AuthService) SendResetCode(req SendCodeRequest) (*SendCodeResponse, err
 		return nil, ErrPhoneNotFound
 	}
 
+	// 如果请求中包含用户名，验证用户名与手机号是否匹配
+	if req.Username != "" {
+		if user.UserName != req.Username {
+			return nil, ErrUsernamePhoneMismatch
+		}
+	}
+
 	_, err = s.smsService.SendResetCode(req.Phone)
 	if err != nil {
 		return nil, err
@@ -577,6 +642,7 @@ func (s *AuthService) SendResetCode(req SendCodeRequest) (*SendCodeResponse, err
 }
 
 type ResetPasswordRequest struct {
+	Username    string `json:"username" binding:"required,min=3"`
 	Phone       string `json:"phone" binding:"required,len=11"`
 	Code        string `json:"code" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=8"`
@@ -591,12 +657,18 @@ func (s *AuthService) ResetPassword(req ResetPasswordRequest) (*ResetPasswordRes
 		return nil, ErrInvalidCode
 	}
 
-	user, err := s.userRepo.FindByPhone(req.Phone)
+	// 使用 FindActiveByPhone 查找活跃用户（status=1 且 logout_at=-1）
+	user, err := s.userRepo.FindActiveByPhone(req.Phone)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrPhoneNotFound
 		}
 		return nil, err
+	}
+
+	// 验证用户名与手机号是否匹配
+	if user.UserName != req.Username {
+		return nil, ErrUsernamePhoneMismatch
 	}
 
 	hashedPwd, err := utils.HashPassword(req.NewPassword)
@@ -656,7 +728,12 @@ func (s *AuthService) DeleteAccount(userID uint64, req DeleteAccountRequest) (*D
 		return nil, err
 	}
 
-	if user.RecallServiceName != req.ConfirmUsername {
+	// 检查用户是否已注销
+	if user.Status == 0 || user.LogoutAt != -1 {
+		return nil, errors.New("账户已注销")
+	}
+
+	if user.UserName != req.ConfirmUsername {
 		return nil, errors.New("账户名称不正确")
 	}
 
@@ -668,4 +745,54 @@ func (s *AuthService) DeleteAccount(userID uint64, req DeleteAccountRequest) (*D
 	_ = s.refreshTokenRepo.DeleteByUserID(userID)
 
 	return &DeleteAccountResponse{Message: "账户已注销"}, nil
+}
+
+// GetUidByUsername 通过用户名查询 UID（包含已注销用户）
+type GetUidByUsernameRequest struct {
+	Username string `json:"username" binding:"required"`
+}
+
+type GetUidByUsernameResponse struct {
+	Username string `json:"username"`
+	UID      string `json:"uid"`
+}
+
+func (s *AuthService) GetUidByUsername(req GetUidByUsernameRequest) (*GetUidByUsernameResponse, error) {
+	user, err := s.userRepo.FindByUsername(req.Username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return &GetUidByUsernameResponse{
+		Username: user.UserName,
+		UID:      user.UID,
+	}, nil
+}
+
+// GetActivateUidByUsername 通过用户名查询活跃用户的 UID（仅查询 logout_at = -1 的用户）
+type GetActivateUidByUsernameRequest struct {
+	Username string `json:"username" binding:"required"`
+}
+
+type GetActivateUidByUsernameResponse struct {
+	Username string `json:"username"`
+	UID      string `json:"uid"`
+}
+
+func (s *AuthService) GetActivateUidByUsername(req GetActivateUidByUsernameRequest) (*GetActivateUidByUsernameResponse, error) {
+	user, err := s.userRepo.FindActiveByUsername(req.Username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return &GetActivateUidByUsernameResponse{
+		Username: user.UserName,
+		UID:      user.UID,
+	}, nil
 }

@@ -30,31 +30,31 @@ func NewNotifyService(cfg *config.Config) *NotifyService {
 }
 
 type NotifyData struct {
-	RecallServiceName string `json:"recall_service_name"`
-	Platform          string `json:"platform"`
-	UserName          string `json:"user_name"`
+	UserName string `json:"user_name"`
+	Platform string `json:"platform"`
+	UserTag  string `json:"user_tag"`
 }
 
-func (s *NotifyService) TriggerNotify(recallServiceName, platform, userName string) {
-	go s.asyncNotify(recallServiceName, platform, userName)
+func (s *NotifyService) TriggerNotify(userName, platform, userTag string) {
+	go s.asyncNotify(userName, platform, userTag)
 }
 
-func (s *NotifyService) asyncNotify(recallServiceName, platform, userName string) {
-	user, err := s.userRepo.FindByUsername(recallServiceName)
+func (s *NotifyService) asyncNotify(userName, platform, userTag string) {
+	user, err := s.userRepo.FindByUsername(userName)
 	if err != nil {
-		log.Printf("[Notify] User not found: %s, error: %v", recallServiceName, err)
+		log.Printf("[Notify] User not found: %s, error: %v", userName, err)
 		return
 	}
 
 	if user.NotifyURL == "" {
-		log.Printf("[Notify] No notify URL set for user: %s", recallServiceName)
+		log.Printf("[Notify] No notify URL set for user: %s", userName)
 		return
 	}
 
 	data := NotifyData{
-		RecallServiceName: recallServiceName,
-		Platform:          platform,
-		UserName:          userName,
+		UserName: userName,
+		Platform: platform,
+		UserTag:  userTag,
 	}
 
 	jsonData, err := json.Marshal(data)
@@ -71,7 +71,7 @@ func (s *NotifyService) asyncNotify(recallServiceName, platform, userName string
 
 		err := s.sendNotify(user.NotifyURL, jsonData)
 		if err == nil {
-			log.Printf("[Notify] Successfully sent to %s for user %s", user.NotifyURL, recallServiceName)
+			log.Printf("[Notify] Successfully sent to %s for user %s", user.NotifyURL, userName)
 			return
 		}
 		lastErr = err

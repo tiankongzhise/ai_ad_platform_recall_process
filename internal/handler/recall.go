@@ -21,6 +21,32 @@ type RecallHandler struct {
 	authService   *service.AuthService
 }
 
+func (h *RecallHandler) buildRecallQueryParams(c *gin.Context, currentUser *model.User) repository.QueryParams {
+	params := repository.QueryParams{
+		UserName: currentUser.UserName, // 强制使用当前用户，不允许跨用户查询
+		UID:      currentUser.UID,      // 强制使用当前用户uid，避免越权
+		Platform:          c.Query("platform"),
+		UserTag:           c.Query("user_tag"),
+	}
+	// 兼容旧参数：state里的 user_name 已更名为 user_tag
+	if params.UserTag == "" {
+		params.UserTag = c.Query("user_name")
+	}
+
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil {
+			params.Page = page
+		}
+	}
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil {
+			params.PageSize = pageSize
+		}
+	}
+
+	return params
+}
+
 func NewRecallHandler(recallService *service.RecallService, notifyService *service.NotifyService, authService *service.AuthService) *RecallHandler {
 	return &RecallHandler{
 		recallService: recallService,
@@ -59,9 +85,14 @@ func (h *RecallHandler) RecallInfo(c *gin.Context) {
 		"message": "Recall接口使用说明",
 		"data": gin.H{
 			"description": "回调接口使用说明",
-			"format": "/recall?state={urlcode(recall_service_name=XXX&platform=XXX&user_name=XXX)}&other_params",
-			"required_params": []string{"recall_service_name", "platform", "user_name"},
-			"optional_params": []string{"other_params"},
+			"format":       "/recall?state=Uid_Platform_UserTag",
+			"format_example": "Uid_Platform_UserTag",
+			"params": gin.H{
+				"Uid":      "32位十六进制字符串，用户注册时生成，用于标识用户",
+				"Platform": "不超过13位的纯数字，由用户自行管理对应关系",
+				"UserTag":  "不超过13位的纯数字，由用户自行管理对应关系",
+			},
+			"example": "e8b5f1a2c3d4e5f6a7b8c9d0e1f2a3b4_12345_67890",
 		},
 	})
 }
@@ -78,7 +109,23 @@ func (h *RecallHandler) HandleRecall(c *gin.Context) {
 	params, missingParams, err := h.recallService.ProcessRecallWithParams(state)
 	if err != nil {
 		if errors.Is(err, service.ErrStateFormatError) {
-			response.BadRequest(c, response.StateFormatErrorCode, "state参数格式错误，请使用URL编码", nil)
+			response.BadRequest(c, response.StateFormatErrorCode, "state参数格式错误，格式应为：Uid_Platform_UserTag", nil)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidUid) {
+			response.BadRequest(c, response.StateFormatErrorCode, "uid格式错误，应为32位十六进制字符串", nil)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidPlatformNumber) {
+			response.BadRequest(c, response.StateFormatErrorCode, "platform格式错误，应为不超过13位的纯数字", nil)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidUserTag) {
+			response.BadRequest(c, response.StateFormatErrorCode, "user_tag格式错误，应为不超过13位的纯数字", nil)
+			return
+		}
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户不存在或uid无效", nil)
 			return
 		}
 		if errors.Is(err, service.ErrMissingRequiredParam) {
@@ -116,8 +163,8 @@ func (h *RecallHandler) HandleRecall(c *gin.Context) {
 		return
 	}
 
-	if params.RecallServiceName != "" && params.Platform != "" && params.UserName != "" {
-		h.notifyService.TriggerNotify(params.RecallServiceName, params.Platform, params.UserName)
+	if params.UserName != "" && params.Platform != "" && params.UserTag != "" {
+		h.notifyService.TriggerNotify(params.UserName, params.Platform, params.UserTag)
 	}
 
 	response.SuccessWithMessage(c, "回调处理成功", resp)
@@ -131,20 +178,7 @@ func (h *RecallHandler) Query(c *gin.Context) {
 		return
 	}
 
-	params := repository.QueryParams{
-		RecallServiceName: currentUser.RecallServiceName, // 强制使用当前用户，不允许查询其他用户
-	}
-
-	if pageStr := c.Query("page"); pageStr != "" {
-		if page, err := strconv.Atoi(pageStr); err == nil {
-			params.Page = page
-		}
-	}
-	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
-		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil {
-			params.PageSize = pageSize
-		}
-	}
+	params := h.buildRecallQueryParams(c, currentUser)
 
 	result, err := h.recallService.Query(params)
 	if err != nil {
@@ -163,9 +197,7 @@ func (h *RecallHandler) QueryLatest(c *gin.Context) {
 		return
 	}
 
-	params := repository.QueryParams{
-		RecallServiceName: currentUser.RecallServiceName, // 强制使用当前用户，不允许查询其他用户
-	}
+	params := h.buildRecallQueryParams(c, currentUser)
 
 	record, err := h.recallService.QueryLatest(params)
 	if err != nil {
@@ -184,9 +216,7 @@ func (h *RecallHandler) QueryHistory(c *gin.Context) {
 		return
 	}
 
-	params := repository.QueryParams{
-		RecallServiceName: currentUser.RecallServiceName, // 强制使用当前用户，不允许查询其他用户
-	}
+	params := h.buildRecallQueryParams(c, currentUser)
 
 	records, err := h.recallService.QueryAll(params)
 	if err != nil {
