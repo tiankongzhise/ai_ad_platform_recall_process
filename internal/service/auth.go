@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log"
 	"time"
 
 	"ai_ad_platform_recall_process/internal/config"
@@ -127,6 +128,9 @@ func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
 		ApiToken: apiToken,
 		LogoutAt: -1, // 显式设置活跃用户标记
 	}
+
+	// 调试日志：确认 LogoutAt 值
+	log.Printf("[DEBUG Register] 创建用户 user_name=%s, logout_at=%d", user.UserName, user.LogoutAt)
 
 	if err := s.userRepo.Create(user); err != nil {
 		return nil, err

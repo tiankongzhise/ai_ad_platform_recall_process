@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"log"
 	"time"
 
 	"ai_ad_platform_recall_process/internal/model"
@@ -20,6 +21,8 @@ func NewUserRepository() *UserRepository {
 }
 
 func (r *UserRepository) Create(user *model.User) error {
+	// 调试日志：确认插入数据库时的 LogoutAt 值
+	log.Printf("[DEBUG UserRepo.Create] user_name=%s, logout_at=%d, status=%d", user.UserName, user.LogoutAt, user.Status)
 	return r.db.Create(user).Error
 }
 
