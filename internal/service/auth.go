@@ -126,7 +126,8 @@ func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
 		Phone:    req.Phone,
 		Password: hashedPassword,
 		ApiToken: apiToken,
-		LogoutAt: -1, // 显式设置活跃用户标记
+		Status:   1,    // 显式设置活跃状态
+		LogoutAt: -1,  // 显式设置活跃用户标记
 	}
 
 	// 调试日志：确认 LogoutAt 值
