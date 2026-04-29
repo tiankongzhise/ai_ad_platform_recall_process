@@ -125,6 +125,7 @@ func (s *AuthService) Register(req RegisterRequest) (*RegisterResponse, error) {
 		Phone:    req.Phone,
 		Password: hashedPassword,
 		ApiToken: apiToken,
+		LogoutAt: -1, // 显式设置活跃用户标记
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
