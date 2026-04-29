@@ -23,10 +23,11 @@ type RecallHandler struct {
 
 func (h *RecallHandler) buildRecallQueryParams(c *gin.Context, currentUser *model.User) repository.QueryParams {
 	params := repository.QueryParams{
-		UserName: currentUser.UserName, // 强制使用当前用户，不允许跨用户查询
-		UID:      currentUser.UID,      // 强制使用当前用户uid，避免越权
-		Platform:          c.Query("platform"),
-		UserTag:           c.Query("user_tag"),
+		UserName:       currentUser.UserName, // 强制使用当前用户，不允许跨用户查询
+		UID:            currentUser.UID,      // 强制使用当前用户uid，避免越权
+		Platform:       c.Query("platform"),
+		UserTag:        c.Query("user_tag"),
+		IdempotencyKey: c.Query("idempotency_key"),
 	}
 	// 兼容旧参数：state里的 user_name 已更名为 user_tag
 	if params.UserTag == "" {
@@ -81,18 +82,19 @@ func (h *RecallHandler) getCurrentUserFromRequest(c *gin.Context) (*model.User, 
 
 func (h *RecallHandler) RecallInfo(c *gin.Context) {
 	c.JSON(200, gin.H{
-		"code": 0,
+		"code":    0,
 		"message": "Recall接口使用说明",
 		"data": gin.H{
-			"description": "回调接口使用说明",
-			"format":       "/recall?state=Uid_Platform_UserTag",
-			"format_example": "Uid_Platform_UserTag",
+			"description":    "回调接口使用说明",
+			"format":         "/recall?state=Uid_Platform_UserTag[_IdempotencyKey]",
+			"format_example": "Uid_Platform_UserTag[_IdempotencyKey]",
 			"params": gin.H{
-				"Uid":      "32位十六进制字符串，用户注册时生成，用于标识用户",
-				"Platform": "不超过13位的纯数字，由用户自行管理对应关系",
-				"UserTag":  "不超过13位的纯数字，由用户自行管理对应关系",
+				"Uid":            "32位十六进制字符串，用户注册时生成，用于标识用户",
+				"Platform":       "不超过13位的纯数字，由用户自行管理对应关系",
+				"UserTag":        "不超过13位的纯数字，由用户自行管理对应关系",
+				"IdempotencyKey": "可选参数，放在最后一段；未提供时默认使用字符串'undefine'",
 			},
-			"example": "e8b5f1a2c3d4e5f6a7b8c9d0e1f2a3b4_12345_67890",
+			"example": "e8b5f1a2c3d4e5f6a7b8c9d0e1f2a3b4_12345_67890_order-001",
 		},
 	})
 }
@@ -109,7 +111,7 @@ func (h *RecallHandler) HandleRecall(c *gin.Context) {
 	params, missingParams, err := h.recallService.ProcessRecallWithParams(state)
 	if err != nil {
 		if errors.Is(err, service.ErrStateFormatError) {
-			response.BadRequest(c, response.StateFormatErrorCode, "state参数格式错误，格式应为：Uid_Platform_UserTag", nil)
+			response.BadRequest(c, response.StateFormatErrorCode, "state参数格式错误，格式应为：Uid_Platform_UserTag[_IdempotencyKey]", nil)
 			return
 		}
 		if errors.Is(err, service.ErrInvalidUid) {

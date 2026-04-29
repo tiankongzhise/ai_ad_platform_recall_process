@@ -22,19 +22,20 @@ func (r *RecallRepository) Create(record *model.RecallRecord) error {
 }
 
 type QueryParams struct {
-	UserName          string
-	UID               string
-	Platform          string
-	UserTag           string
-	Page              int
-	PageSize          int
+	UserName       string
+	UID            string
+	Platform       string
+	UserTag        string
+	IdempotencyKey string
+	Page           int
+	PageSize       int
 }
 
 type QueryResult struct {
-	Total   int64              `json:"total"`
-	Page    int                `json:"page"`
-	PageSize int               `json:"page_size"`
-	Records []model.RecallRecord `json:"records"`
+	Total    int64                `json:"total"`
+	Page     int                  `json:"page"`
+	PageSize int                  `json:"page_size"`
+	Records  []model.RecallRecord `json:"records"`
 }
 
 func (r *RecallRepository) Query(params QueryParams) (*QueryResult, error) {
@@ -51,6 +52,9 @@ func (r *RecallRepository) Query(params QueryParams) (*QueryResult, error) {
 	}
 	if params.UserTag != "" {
 		query = query.Where("user_tag = ?", params.UserTag)
+	}
+	if params.IdempotencyKey != "" {
+		query = query.Where("idempotency_key = ?", params.IdempotencyKey)
 	}
 
 	var total int64
@@ -73,10 +77,10 @@ func (r *RecallRepository) Query(params QueryParams) (*QueryResult, error) {
 	}
 
 	return &QueryResult{
-		Total:   total,
-		Page:    params.Page,
+		Total:    total,
+		Page:     params.Page,
 		PageSize: params.PageSize,
-		Records: records,
+		Records:  records,
 	}, nil
 }
 
@@ -94,6 +98,9 @@ func (r *RecallRepository) QueryLatest(params QueryParams) (*model.RecallRecord,
 	}
 	if params.UserTag != "" {
 		query = query.Where("user_tag = ?", params.UserTag)
+	}
+	if params.IdempotencyKey != "" {
+		query = query.Where("idempotency_key = ?", params.IdempotencyKey)
 	}
 
 	var record model.RecallRecord
@@ -118,6 +125,9 @@ func (r *RecallRepository) QueryAll(params QueryParams) ([]model.RecallRecord, e
 	}
 	if params.UserTag != "" {
 		query = query.Where("user_tag = ?", params.UserTag)
+	}
+	if params.IdempotencyKey != "" {
+		query = query.Where("idempotency_key = ?", params.IdempotencyKey)
 	}
 
 	var records []model.RecallRecord
