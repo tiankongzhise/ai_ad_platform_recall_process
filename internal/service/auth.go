@@ -157,7 +157,8 @@ type LoginResponse struct {
 }
 
 func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
-	user, err := s.userRepo.FindByUsername(req.Username)
+	// 使用 FindActiveByUsername 查询活跃用户（logout_at = -1）
+	user, err := s.userRepo.FindActiveByUsername(req.Username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInvalidCredentials
@@ -165,8 +166,8 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 		return nil, err
 	}
 
-	// 检查用户是否已注销
-	if user.Status == 0 {
+	// 双重检查：确保用户状态正常（防御性编程）
+	if user.Status == 0 || user.LogoutAt != -1 {
 		return nil, ErrInvalidCredentials
 	}
 
