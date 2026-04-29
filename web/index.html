@@ -157,7 +157,7 @@
                         <input type="url" id="notifyUrl" placeholder="https://your-server.com/webhook">
                         <button id="btnSetNotify" class="btn btn-primary">设置</button>
                     </div>
-                    <button id="btnGetNotify" class="btn btn-outline">获取当前设置</button>
+                    <button id="btnGetNotify" class="btn btn-outline">取消通知设置</button>
                 </div>
             </section>
 
@@ -530,10 +530,11 @@
 
         document.getElementById('btnGetNotify').addEventListener('click', async () => {
             try {
-                const res = await axios.get(`${API_BASE}/api/notify/get`);
-                document.getElementById('notifyUrl').value = res.data.data.notify_url || '';
+                await axios.post(`${API_BASE}/api/notify/cancel`);
+                document.getElementById('notifyUrl').value = '';
+                alert('通知设置已取消，当前为无回调URL');
             } catch (err) {
-                alert('获取失败: ' + (err.response?.data?.message || err.message));
+                alert('取消失败: ' + (err.response?.data?.message || err.message));
             }
         });
 
