@@ -157,7 +157,7 @@
                         <input type="url" id="notifyUrl" placeholder="https://your-server.com/webhook">
                         <button id="btnSetNotify" class="btn btn-primary">设置</button>
                     </div>
-                    <button id="btnGetNotify" class="btn btn-outline">获取当前设置</button>
+                    <button id="btnGetNotify" class="btn btn-outline">取消通知设置</button>
                 </div>
             </section>
 
@@ -202,8 +202,12 @@
                             <input type="text" id="queryPlatform" placeholder="platform">
                         </div>
                         <div class="form-group">
-                            <label for="queryUserName">用户标签:</label>
-                            <input type="text" id="queryUserName" placeholder="user_tag">
+                            <label for="queryUserTag">用户标签:</label>
+                            <input type="text" id="queryUserTag" placeholder="user_tag">
+                        </div>
+                        <div class="form-group">
+                            <label for="queryIdempotencyKey">幂等标识:</label>
+                            <input type="text" id="queryIdempotencyKey" placeholder="idempotency_key（可选）">
                         </div>
                     </div>
                     <div class="form-row">
@@ -230,12 +234,13 @@
                 <div class="info-box">
                     <p><strong>接口地址:</strong> <code>/recall</code></p>
                     <p><strong>调用格式:</strong></p>
-                    <pre>/recall?state=Uid_Platform_UserTag</pre>
+                    <pre>/recall?state=Uid_Platform_UserTag[_IdempotencyKey]</pre>
                     <p><strong>参数说明:</strong></p>
                     <ul>
                         <li><code>Uid</code> - 32位十六进制字符串，用户唯一标识（显示在用户名旁边）</li>
                         <li><code>Platform</code> - 不超过13位的纯数字，由用户自行管理对应关系</li>
                         <li><code>UserTag</code> - 不超过13位的纯数字，由用户自行管理对应关系</li>
+                        <li><code>IdempotencyKey</code> - 可选参数，放在最后一段；未提供时默认值为 <code>undefine</code></li>
                     </ul>
                     <p><strong>示例:</strong></p>
                     <pre id="exampleUrl"></pre>
@@ -462,8 +467,12 @@
 
         function updateExampleUrl(uid) {
             const platformNumber = document.getElementById('queryPlatform').value || '12345';
-            const userTag = document.getElementById('queryUserName').value || '67890';
-            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?state=${uid}_${platformNumber}_${userTag}`;
+            const userTag = document.getElementById('queryUserTag').value || '67890';
+            const idempotencyKey = document.getElementById('queryIdempotencyKey').value.trim();
+            const state = idempotencyKey
+                ? `${uid}_${platformNumber}_${userTag}_${idempotencyKey}`
+                : `${uid}_${platformNumber}_${userTag}`;
+            document.getElementById('exampleUrl').textContent = `${window.location.origin}/recall?state=${state}`;
         }
 
         // 页面加载时获取 UID 并更新示例
@@ -480,7 +489,7 @@
         }
         loadUidAndUpdateExample();
 
-        document.querySelectorAll('#queryPlatform, #queryUserName').forEach(el => {
+        document.querySelectorAll('#queryPlatform, #queryUserTag, #queryIdempotencyKey').forEach(el => {
             el.addEventListener('input', () => {
                 const res = document.getElementById('exampleUrl').textContent;
                 const uid = res.split('_')[0].replace(`${window.location.origin}/recall?state=`, '');
@@ -521,10 +530,11 @@
 
         document.getElementById('btnGetNotify').addEventListener('click', async () => {
             try {
-                const res = await axios.get(`${API_BASE}/api/notify/get`);
-                document.getElementById('notifyUrl').value = res.data.data.notify_url || '';
+                await axios.post(`${API_BASE}/api/notify/cancel`);
+                document.getElementById('notifyUrl').value = '';
+                alert('通知设置已取消，当前为无回调URL');
             } catch (err) {
-                alert('获取失败: ' + (err.response?.data?.message || err.message));
+                alert('取消失败: ' + (err.response?.data?.message || err.message));
             }
         });
 
@@ -599,7 +609,8 @@
         document.getElementById('btnQuery').addEventListener('click', async () => {
             const params = {
                 platform: document.getElementById('queryPlatform').value,
-                user_tag: document.getElementById('queryUserName').value,
+                user_tag: document.getElementById('queryUserTag').value,
+                idempotency_key: document.getElementById('queryIdempotencyKey').value,
                 page: parseInt(document.getElementById('queryPage').value) || 1,
                 page_size: parseInt(document.getElementById('queryPageSize').value) || 20
             };
@@ -612,13 +623,14 @@
                 if (result.records.length === 0) {
                     html += '<p class="empty">暂无数据</p>';
                 } else {
-                    html += '<table class="data-table"><thead><tr><th>用户名</th><th>UID</th><th>平台</th><th>用户标签</th><th>参数</th><th>时间</th></tr></thead><tbody>';
+                    html += '<table class="data-table"><thead><tr><th>用户名</th><th>UID</th><th>平台</th><th>用户标签</th><th>幂等标识</th><th>参数</th><th>时间</th></tr></thead><tbody>';
                     result.records.forEach(r => {
                         html += `<tr>
                             <td>${r.user_name}</td>
                             <td>${r.uid || ''}</td>
                             <td>${r.platform}</td>
                             <td>${r.user_tag}</td>
+                            <td>${r.idempotency_key || ''}</td>
                             <td><pre>${r.params || ''}</pre></td>
                             <td>${new Date(r.created_at).toLocaleString()}</td>
                         </tr>`;
@@ -634,7 +646,8 @@
         document.getElementById('btnQueryLatest').addEventListener('click', async () => {
             const params = {
                 platform: document.getElementById('queryPlatform').value,
-                user_tag: document.getElementById('queryUserName').value
+                user_tag: document.getElementById('queryUserTag').value,
+                idempotency_key: document.getElementById('queryIdempotencyKey').value
             };
 
             try {
@@ -645,12 +658,13 @@
                 if (!result || !result.created_at) {
                     html += '<p class="empty">暂无数据</p>';
                 } else {
-                    html += '<table class="data-table"><thead><tr><th>用户名</th><th>UID</th><th>平台</th><th>用户标签</th><th>参数</th><th>时间</th></tr></thead><tbody>';
+                    html += '<table class="data-table"><thead><tr><th>用户名</th><th>UID</th><th>平台</th><th>用户标签</th><th>幂等标识</th><th>参数</th><th>时间</th></tr></thead><tbody>';
                     html += `<tr>
                         <td>${result.user_name}</td>
                         <td>${result.uid || ''}</td>
                         <td>${result.platform}</td>
                         <td>${result.user_tag}</td>
+                        <td>${result.idempotency_key || ''}</td>
                         <td><pre>${result.params || ''}</pre></td>
                         <td>${new Date(result.created_at).toLocaleString()}</td>
                     </tr>`;
@@ -665,7 +679,8 @@
         document.getElementById('btnQueryHistory').addEventListener('click', async () => {
             const params = {
                 platform: document.getElementById('queryPlatform').value,
-                user_tag: document.getElementById('queryUserName').value
+                user_tag: document.getElementById('queryUserTag').value,
+                idempotency_key: document.getElementById('queryIdempotencyKey').value
             };
 
             try {
@@ -676,13 +691,14 @@
                 if (!result.records || result.records.length === 0) {
                     html += '<p class="empty">暂无数据</p>';
                 } else {
-                    html += '<table class="data-table"><thead><tr><th>用户名</th><th>UID</th><th>平台</th><th>用户标签</th><th>参数</th><th>时间</th></tr></thead><tbody>';
+                    html += '<table class="data-table"><thead><tr><th>用户名</th><th>UID</th><th>平台</th><th>用户标签</th><th>幂等标识</th><th>参数</th><th>时间</th></tr></thead><tbody>';
                     result.records.forEach(r => {
                         html += `<tr>
                             <td>${r.user_name}</td>
                             <td>${r.uid || ''}</td>
                             <td>${r.platform}</td>
                             <td>${r.user_tag}</td>
+                            <td>${r.idempotency_key || ''}</td>
                             <td><pre>${r.params || ''}</pre></td>
                             <td>${new Date(r.created_at).toLocaleString()}</td>
                         </tr>`;

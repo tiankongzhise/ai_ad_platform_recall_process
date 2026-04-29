@@ -74,3 +74,20 @@ func (h *NotifyHandler) GetNotifyURL(c *gin.Context) {
 		"notify_url": notifyURL,
 	})
 }
+
+func (h *NotifyHandler) CancelNotifyURL(c *gin.Context) {
+	user := GetUserFromContext(c)
+	if user == nil {
+		response.Unauthorized(c, response.InvalidTokenCode, "用户未认证")
+		return
+	}
+
+	if err := h.notifyService.SetNotifyURL(user.ID, ""); err != nil {
+		response.InternalError(c, "取消通知URL失败: "+err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"notify_url": "",
+	})
+}

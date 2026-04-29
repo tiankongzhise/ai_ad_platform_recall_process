@@ -89,6 +89,7 @@ func main() {
 			notify := protected.Group("/notify")
 			{
 				notify.POST("/set", notifyHandler.SetNotifyURL)
+				notify.POST("/cancel", notifyHandler.CancelNotifyURL)
 				notify.GET("/get", notifyHandler.GetNotifyURL)
 			}
 

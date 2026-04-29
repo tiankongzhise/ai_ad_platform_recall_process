@@ -53,11 +53,13 @@ CREATE TABLE IF NOT EXISTS recall_records (
     uid VARCHAR(64) COMMENT '用户唯一标识UID',
     platform VARCHAR(64) NOT NULL COMMENT '平台来源',
     user_tag VARCHAR(128) NOT NULL COMMENT '授权用户标识',
+    idempotency_key VARCHAR(255) NOT NULL DEFAULT 'undefine' COMMENT '幂等标识',
     params TEXT COMMENT '完整参数JSON',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_user_name (user_name),
     INDEX idx_uid (uid),
     INDEX idx_platform (platform),
     INDEX idx_user_tag (user_tag),
+    INDEX idx_idempotency_key (idempotency_key),
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
