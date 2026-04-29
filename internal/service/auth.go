@@ -26,6 +26,8 @@ var (
 	ErrPhoneAlreadyExists  = errors.New("手机号已被注册")
 	ErrInvalidApiToken     = errors.New("ApiToken无效")
 	ErrInvalidRefreshToken = errors.New("RefreshToken无效或已过期")
+	ErrUserNotActive       = errors.New("账户已注销或未生效")
+	ErrUsernamePhoneMismatch = errors.New("用户名与手机号不匹配")
 )
 
 type AuthService struct {
@@ -596,7 +598,8 @@ func (s *AuthService) generateRefreshToken(userID uint64) (string, time.Time, er
 }
 
 type SendCodeRequest struct {
-	Phone string `json:"phone" binding:"required,len=11"`
+	Phone    string `json:"phone" binding:"required,len=11"`
+	Username string `json:"username"` // 可选，忘记密码时需要
 }
 
 type SendCodeResponse struct {
@@ -612,7 +615,8 @@ func (s *AuthService) SendRegisterCode(req SendCodeRequest) (*SendCodeResponse, 
 }
 
 func (s *AuthService) SendResetCode(req SendCodeRequest) (*SendCodeResponse, error) {
-	user, err := s.userRepo.FindByPhone(req.Phone)
+	// 使用 FindActiveByPhone 查找活跃用户（status=1 且 logout_at=-1）
+	user, err := s.userRepo.FindActiveByPhone(req.Phone)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrPhoneNotFound
@@ -623,6 +627,13 @@ func (s *AuthService) SendResetCode(req SendCodeRequest) (*SendCodeResponse, err
 		return nil, ErrPhoneNotFound
 	}
 
+	// 如果请求中包含用户名，验证用户名与手机号是否匹配
+	if req.Username != "" {
+		if user.UserName != req.Username {
+			return nil, ErrUsernamePhoneMismatch
+		}
+	}
+
 	_, err = s.smsService.SendResetCode(req.Phone)
 	if err != nil {
 		return nil, err
@@ -631,6 +642,7 @@ func (s *AuthService) SendResetCode(req SendCodeRequest) (*SendCodeResponse, err
 }
 
 type ResetPasswordRequest struct {
+	Username    string `json:"username" binding:"required,min=3"`
 	Phone       string `json:"phone" binding:"required,len=11"`
 	Code        string `json:"code" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=8"`
@@ -645,12 +657,18 @@ func (s *AuthService) ResetPassword(req ResetPasswordRequest) (*ResetPasswordRes
 		return nil, ErrInvalidCode
 	}
 
-	user, err := s.userRepo.FindByPhone(req.Phone)
+	// 使用 FindActiveByPhone 查找活跃用户（status=1 且 logout_at=-1）
+	user, err := s.userRepo.FindActiveByPhone(req.Phone)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrPhoneNotFound
 		}
 		return nil, err
+	}
+
+	// 验证用户名与手机号是否匹配
+	if user.UserName != req.Username {
+		return nil, ErrUsernamePhoneMismatch
 	}
 
 	hashedPwd, err := utils.HashPassword(req.NewPassword)

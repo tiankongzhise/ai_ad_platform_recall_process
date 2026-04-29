@@ -35,10 +35,10 @@ func (r *UserRepository) FindByUsername(username string) (*model.User, error) {
 	return &user, nil
 }
 
-// FindActiveByUsername 查找活跃用户（logout_at = -1）
+// FindActiveByUsername 查找活跃用户（status=1 且 logout_at = -1）
 func (r *UserRepository) FindActiveByUsername(username string) (*model.User, error) {
 	var user model.User
-	err := r.db.Where("user_name = ? AND logout_at = -1", username).First(&user).Error
+	err := r.db.Where("user_name = ? AND logout_at = -1 AND status = 1", username).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (r *UserRepository) FindByApiToken(apiToken string) (*model.User, error) {
 
 func (r *UserRepository) FindActiveByPhone(phone string) (*model.User, error) {
 	var user model.User
-	err := r.db.Unscoped().Where("phone = ? AND logout_at = -1", phone).First(&user).Error
+	err := r.db.Where("phone = ? AND logout_at = -1 AND status = 1", phone).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

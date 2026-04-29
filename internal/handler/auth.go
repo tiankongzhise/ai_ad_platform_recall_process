@@ -264,6 +264,10 @@ func (h *AuthHandler) SendResetCode(c *gin.Context) {
 			response.BadRequest(c, response.InvalidCredentialsCode, "手机号未注册", nil)
 			return
 		}
+		if errors.Is(err, service.ErrUsernamePhoneMismatch) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户名与手机号不匹配", nil)
+			return
+		}
 		response.InternalError(c, "发送验证码失败: "+err.Error())
 		return
 	}
@@ -285,7 +289,11 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, service.ErrPhoneNotFound) {
-			response.BadRequest(c, response.InvalidCredentialsCode, "手机号未注册", nil)
+			response.BadRequest(c, response.InvalidCredentialsCode, "手机号未注册或账户已注销", nil)
+			return
+		}
+		if errors.Is(err, service.ErrUsernamePhoneMismatch) {
+			response.BadRequest(c, response.InvalidCredentialsCode, "用户名与手机号不匹配", nil)
 			return
 		}
 		response.InternalError(c, "重置密码失败: "+err.Error())
